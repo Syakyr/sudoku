@@ -182,8 +182,9 @@ degrades to an in-memory store and says so in the header instead of crashing.
 ## Layout
 
 ```
-index.html            single page
-css/style.css         theme, responsive board
+index.html            single pane: the board. Everything else is in the drawer.
+css/style.css         theme + viewport-fitting board sizing
+tools/pw-check.mjs   real-Chromium visual/responsive/console check
 js/prng.js          seeded sfc32 PRNG + readable seed encoding
 js/board.js         grid model, peer/unit tables, candidate bitmasks
 js/solver.js        technique ladder, rating, solution counting (uniqueness)
@@ -192,11 +193,20 @@ js/canon.js         symmetry canonicalisation (standard / full) + hashing
 js/store.js         localStorage library, schema + migration, import/export
 js/metrics.js       all statistics, pure functions over records
 js/app.js           UI controller
-tests/              node --test suite (62 tests)
+tests/              node --test suite (63 tests)
 ```
 
 The engine and store are browser-agnostic and tested in node; only `app.js`
 touches the DOM.
+
+### Layout
+
+One pane. The board is sized with
+`clamp(30px, min(10.5vw, (100dvh - chrome) / 9), 68px)` so it fills the
+viewport and **the page never scrolls** — verified at 1280×1000, 390×844 and
+740×380. Generate / Library / Stats / Data live in a drawer that slides in from
+the right (hamburger, backdrop, `Esc` to close) and closes itself whenever a
+puzzle loads, so generating or resuming always lands you back on the board.
 
 ## Development
 
@@ -207,6 +217,22 @@ npm run serve   # python3 -m http.server 8080  → http://localhost:8080
 ```
 
 ES modules need `http://`, not `file://` — use `npm run serve` locally.
+
+### Visual check
+
+`tools/pw-check.mjs` drives real Chromium across desktop / mobile / landscape and
+asserts no overflow, working drawer, rendered text and a clean console:
+
+```bash
+LD_LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib \
+FONTCONFIG_PATH=/home/linuxbrew/.linuxbrew/etc/fonts \
+node tools/pw-check.mjs http://localhost:8080 ~/Codebase/_scratchpad/sudoku/shots
+```
+
+Both env vars are mandatory on this host: without `LD_LIBRARY_PATH` Chromium
+cannot load its shared libs, and without `FONTCONFIG_PATH` it finds no fonts and
+renders **every glyph blank** — a screenshot that looks structurally fine but has
+no text. Exit code is non-zero if any check fails.
 
 ## Deploying to GitHub Pages
 
