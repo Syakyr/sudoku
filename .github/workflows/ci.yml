@@ -24,36 +24,10 @@ jobs:
       - name: Test
         run: npm test
 
-  pages:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/configure-pages@v5
-
-      # The app is a static bundle: index.html + css/ + js/, all referenced by
-      # relative path, so it works at a project-page subpath with no build step.
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-          ignore: |
-            **/node_modules/**
-            .git
-            .github
-            tests
-            package.json
-            package-lock.json
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
+# No `pages` job here, deliberately. This site uses GitHub Pages' legacy
+# branch-based deployment (build_type: legacy, source main /), which publishes
+# the branch directly via the separate `pages-build-deployment` workflow. The
+# actions/deploy-pages flow only works when the site's build type is set to
+# "GitHub Actions", so a deploy job here would fail against a legacy site, and
+# switching the type would break the working branch-based publish. CI's only job
+# is to run the tests.
