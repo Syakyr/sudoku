@@ -348,38 +348,62 @@ await scenario('11-mode-reset', { width: 1280, height: 1000 }, 'dark', async (pa
   const opts = await page.$$eval('#modeSelect option', (os) => os.map((o) => o.value));
   if (opts.join(',') !== 'casual,strict') problems.push(`mode select wrong: ${opts}`);
 
-  // Make the live puzzle strict, the way generation would have set it.
-  await page.evaluate(() => {
-    sudokuApp.state.puzzle.mode = 'strict';
-    sudokuApp.syncModeUi();
-  });
-  await page.waitForTimeout(200);
-  const strict = await page.evaluate(() => ({
-    mode: sudokuApp.state.puzzle.mode,
-    undoDisabled: document.getElementById('undoBtn').disabled,
-    footer: document.getElementById('puzzleMeta').textContent
-  }));
-  if (!strict.undoDisabled) problems.push('strict puzzle left the undo button enabled');
-  if (!/Strict/.test(strict.footer)) problems.push('footer does not show the mode');
+  // Generate a real strict puzzle through the UI, then reload. This is the path
+  // that was broken: addPuzzle's record whitelist dropped mode and attempts, so
+  // nothing survived a reload.
+  await openMenu(page);
+  await page.selectOption('#modeSelect', 'strict');
+  await page.selectOption('#difficultySelect', 'easy');
+  await page.click('#generateBtn');
+  await page.waitForFunction(
+    () => sudokuApp.state.puzzle && sudokuApp.state.puzzle.mode === 'strict',
+    { timeout: 40000 }
+  );
+  const generatedId = await page.evaluate(() => sudokuApp.state.puzzle.id);
+  const persisted = await page.evaluate(
+    (id) => {
+      const rec = sudokuApp.store.getPuzzle(id);
+      return { mode: rec.mode, attempts: rec.attempts };
+    },
+    generatedId
+  );
+  if (persisted.mode !== 'strict') {
+    problems.push(`strict mode not persisted to the record: ${persisted.mode}`);
+  }
+  if (persisted.attempts !== 1) problems.push(`fresh puzzle attempts=${persisted.attempts}, expected 1`);
 
-  // Place a conflicting digit, then try to undo it. The charge must stick.
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(500);
+  const afterReload = await page.evaluate(
+    (id) => {
+      const rec = sudokuApp.store.getPuzzle(id);
+      return {
+        mode: rec.mode,
+        undoDisabled: document.getElementById('undoBtn').disabled,
+        footer: document.getElementById('puzzleMeta').textContent
+      };
+    },
+    generatedId
+  );
+  if (afterReload.mode !== 'strict') problems.push('strict mode lost across reload');
+  if (!afterReload.undoDisabled) problems.push('undo still enabled for a strict puzzle after reload');
+  if (!/Strict/.test(afterReload.footer)) problems.push('footer does not show the mode after reload');
+
+  // Conflicting placement must charge, and the U key must not revoke it.
   const placed = await page.evaluate(() => {
     const st = sudokuApp.state;
-    const given = st.puzzle.grid;
+    const g = st.puzzle.grid;
     for (let i = 0; i < 81; i++) {
-      if (given[i] !== '.') continue;
+      if (g[i] !== '.') continue;
       for (let d = 1; d <= 9; d++) {
-        const peers = sudokuApp.PEERS ? sudokuApp.PEERS[i] : null;
-        if (!peers) continue;
-        if (peers.some((j) => given[j] === String(d))) {
-          st.selected = i;
-          return { i, d };
-        }
+        if (sudokuApp.PEERS[i].some((j) => g[j] === String(d))) return { i, d };
       }
     }
     return null;
   });
-  if (placed) {
+  if (!placed) {
+    problems.push('could not construct a conflicting placement to test strict mode');
+  } else {
     await page.click(`.cell[data-index="${placed.i}"]`);
     await page.click(`#numpad [data-digit="${placed.d}"]`);
     await page.waitForTimeout(200);
@@ -388,28 +412,50 @@ await scenario('11-mode-reset', { width: 1280, height: 1000 }, 'dark', async (pa
     await page.keyboard.press('u');
     await page.waitForTimeout(200);
     const afterUndo = await page.evaluate(() => sudokuApp.state.mistakes);
-    if (afterUndo !== 1) problems.push(`undo changed the mistake count in strict mode: ${afterUndo}`);
-  } else {
-    problems.push('could not construct a conflicting placement to test strict mode');
+    if (afterUndo !== 1) problems.push(`U key changed the mistake count in strict mode: ${afterUndo}`);
   }
 
-  // Reset must clear the board and bump the attempt counter.
+  // Reset: board cleared, attempt bumped, and the bump survives a reload.
   await openMenu(page);
   await page.click('#resetBtn');
   await page.waitForTimeout(500);
-  const afterReset = await page.evaluate(() => ({
-    attempts: sudokuApp.state.puzzle.attempts,
-    mistakes: sudokuApp.state.mistakes,
-    filled: [...sudokuApp.state.values].filter((v, i) => v !== 0 && sudokuApp.state.puzzle.grid[i] === '.').length
-  }));
-  results.modeReset = { strict, placed, afterReset };
-  if (afterReset.attempts !== 2) problems.push(`attempts is ${afterReset.attempts}, expected 2`);
-  if (afterReset.mistakes !== 0) problems.push('reset did not clear the mistake count');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(500);
+  const afterReset = await page.evaluate(
+    (id) => {
+      const rec = sudokuApp.store.getPuzzle(id);
+      return {
+        attempts: rec.attempts,
+        mistakes: rec.progress.mistakes,
+        filled: [...sudokuApp.state.values].filter(
+          (v, i) => v !== 0 && sudokuApp.state.puzzle.grid[i] === '.'
+        ).length,
+        footer: document.getElementById('puzzleMeta').textContent
+      };
+    },
+    generatedId
+  );
+  results.modeReset = { persisted, afterReload, placed, afterReset };
+  if (afterReset.attempts !== 2) problems.push(`attempts after reset+reload = ${afterReset.attempts}, expected 2`);
+  if (afterReset.mistakes !== 0) problems.push('reset did not clear the persisted mistake count');
   if (afterReset.filled !== 0) problems.push('reset left user digits on the board');
-  if (!/Attempt/.test(await page.evaluate(() => document.getElementById('puzzleMeta').textContent))) {
-    problems.push('footer does not show the attempt counter after a reset');
-  }
-  await page.screenshot({ path: `${OUT}/11-after-reset.png` });
+  if (!/Attempt/.test(afterReset.footer)) problems.push('footer does not show the attempt counter');
+
+  // Stats split: switching the mode filter must change which records are counted.
+  await openMenu(page);
+  await page.click('[data-tab="stats"]');
+  await page.waitForTimeout(250);
+  const readStat = () =>
+    page.evaluate(() => document.getElementById('statGrid').textContent.replace(/\s+/g, ' '));
+  const allStats = await readStat();
+  await page.click('#statsModeFilter [data-mode="strict"]');
+  await page.waitForTimeout(250);
+  const strictStats = await readStat();
+  const strictNote = await page.evaluate(() => document.getElementById('statsModeNote').textContent);
+  results.statsSplit = { allLen: allStats.length, strictLen: strictStats.length, strictNote };
+  if (!/^1 puzzle\(s\) in this mode/.test(strictNote)) problems.push(`strict filter note wrong: ${strictNote}`);
+  if (allStats === strictStats) problems.push('strict filter did not change the rendered stats');
+  await page.screenshot({ path: `${OUT}/11-stats-strict.png` });
 });
 
 await browserlessSummary();

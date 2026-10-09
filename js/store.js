@@ -191,6 +191,10 @@ export function createStore({ storage, canonMode = 'full', now = () => Date.now(
       createdAt: puzzle.createdAt || now(),
       updatedAt: now(),
       status: puzzle.status || STATUS.ACTIVE,
+      // Takeback mode is fixed at creation and attempts is cumulative history.
+      // Both must be in this whitelist or they are silently dropped on the way in.
+      mode: puzzle.mode === 'strict' ? 'strict' : 'casual',
+      attempts: Number(puzzle.attempts) > 0 ? Number(puzzle.attempts) : 1,
       progress: {
         userGrid: '',
         notes: '',
@@ -220,6 +224,17 @@ export function createStore({ storage, canonMode = 'full', now = () => Date.now(
 
   function byStatus(status) {
     return allPuzzles().filter((p) => p.status === status);
+  }
+
+  /** Top-level record fields that are not play progress: mode and attempts. */
+  function setMeta(id, patch = {}) {
+    const p = doc.puzzles[id];
+    if (!p) return null;
+    if ('mode' in patch) p.mode = patch.mode === 'strict' ? 'strict' : 'casual';
+    if ('attempts' in patch) p.attempts = Math.max(1, Number(patch.attempts) || 1);
+    p.updatedAt = now();
+    save();
+    return p;
   }
 
   function updateProgress(id, patch) {
@@ -358,6 +373,7 @@ export function createStore({ storage, canonMode = 'full', now = () => Date.now(
     allPuzzles,
     byStatus,
     updateProgress,
+    setMeta,
     complete,
     abandon,
     remove,

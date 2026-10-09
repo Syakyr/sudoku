@@ -38,6 +38,7 @@ const state = {
   mistakes: 0,
   hints: 0,
   libraryFilter: 'active',
+  statsMode: 'all',
   generating: false
 };
 
@@ -284,13 +285,15 @@ function resetPuzzle() {
   state.selected = -1;
   state.puzzle.attempts = (state.puzzle.attempts || 1) + 1;
   $('hintBox').hidden = true;
+  // attempts is a top-level record field, not play progress -- updateProgress
+  // only writes into `progress`, so it must go through setMeta or it is lost.
+  store.setMeta(state.puzzle.id, { attempts: state.puzzle.attempts });
   store.updateProgress(state.puzzle.id, {
     userGrid: gridToString(state.values),
     notes: '',
     elapsedMs: 0,
     mistakes: 0,
-    hints: 0,
-    attempts: state.puzzle.attempts
+    hints: 0
   });
   startTimer(0);
   renderBoard();
@@ -679,10 +682,36 @@ function renderLibrary() {
   }
 }
 
+/**
+ * Records predating takeback modes have no `mode`, and their numbers are not
+ * comparable to either kind -- so they get their own bucket rather than being
+ * silently blended into casual or strict.
+ */
+function modeOf(p) {
+  return p.mode === 'strict' || p.mode === 'casual' ? p.mode : 'unspecified';
+}
+
+function puzzlesForStats() {
+  const all = store.allPuzzles();
+  if (state.statsMode === 'all') return all;
+  return all.filter((p) => modeOf(p) === state.statsMode);
+}
+
 function renderStats() {
-  const s = summarize(store.allPuzzles(), store.doc.counters);
+  const puzzles = puzzlesForStats();
+  const s = summarize(puzzles, store.doc.counters);
   const grid = $('statGrid');
   grid.innerHTML = '';
+  const counts = { casual: 0, strict: 0, unspecified: 0 };
+  for (const p of store.allPuzzles()) counts[modeOf(p)]++;
+  const note = $('statsModeNote');
+  if (note) {
+    note.textContent =
+      state.statsMode === 'all'
+        ? `Casual ${counts.casual} · Strict ${counts.strict} · Unspecified ${counts.unspecified}. ` +
+          'Casual and strict numbers are not comparable, so read them separately.'
+        : `${counts[state.statsMode]} puzzle(s) in this mode. Unspecified records predate takeback modes and are excluded here.`;
+  }
   const add = (label, value, sub) => {
     const d = el('div', 'stat');
     d.appendChild(el('div', 'label', label));
@@ -696,6 +725,12 @@ function renderStats() {
   add('Win streak', String(s.streaks.current), `best ${s.streaks.longest}`);
   add('Day streak', String(s.streaks.daily));
   add('Accuracy', formatPct(s.accuracy, 1), `${s.mistakes} mistakes`);
+  // A strict solve that took three tries is not a clean solve. Counting it as one
+  // would let retried runs masquerade as first-pass successes.
+  const cleanSolves = puzzles.filter(
+    (p) => p.status === STATUS.COMPLETED && (p.attempts || 1) === 1
+  ).length;
+  add('Clean solves', String(cleanSolves), 'completed on attempt 1');
   add('Hint rate', s.hintRate.toFixed(2), 'hints per solved puzzle');
   add('Notes usage', formatPct(s.notesUsage), 'of puzzles use pencil marks');
   if (s.fastest) add('Fastest', formatDuration(s.fastest.time), s.fastest.difficulty);
@@ -908,6 +943,13 @@ function wireControls() {
     });
   });
   $('resetBtn').addEventListener('click', resetPuzzle);
+  $('statsModeFilter').addEventListener('click', (e) => {
+    const b = e.target.closest('.subtab');
+    if (!b) return;
+    for (const t of $('statsModeFilter').children) t.classList.toggle('active', t === b);
+    state.statsMode = b.dataset.mode;
+    renderStats();
+  });
   $('modeSelect').addEventListener('change', syncModeUi);
   syncModeUi();
   $('importTokenBtn').addEventListener('click', importToken);

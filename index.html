@@ -140,6 +140,13 @@
       </div>
 
       <div class="tab-body" id="tab-stats" hidden>
+        <div class="subtabs" id="statsModeFilter">
+          <button class="subtab active" data-mode="all" type="button">All</button>
+          <button class="subtab" data-mode="casual" type="button">Casual</button>
+          <button class="subtab" data-mode="strict" type="button">Strict</button>
+          <button class="subtab" data-mode="unspecified" type="button">Unspecified</button>
+        </div>
+        <p class="fine" id="statsModeNote"></p>
         <div class="stat-grid" id="statGrid"></div>
         <h3>Per difficulty</h3>
         <table class="tier-table" id="tierTable">

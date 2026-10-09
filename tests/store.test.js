@@ -299,3 +299,47 @@ test('describeRating and formatDuration are human readable', () => {
   assert.equal(formatDuration(65000), '1m 05s');
   assert.equal(formatDuration(3725000), '1h 02m');
 });
+
+test('takeback mode and attempt count survive the store round-trip', () => {
+  const ls = memStorage();
+  const s = createStore({ storage: ls });
+  const p = generatePuzzle({ seed: 'MODESEED', difficulty: 'easy' });
+  const res = s.addPuzzle({ ...p, mode: 'strict', attempts: 1 });
+  assert.ok(res.ok, 'puzzle added');
+  assert.equal(res.puzzle.mode, 'strict', 'addPuzzle whitelist must keep mode');
+  assert.equal(res.puzzle.attempts, 1, 'addPuzzle whitelist must keep attempts');
+
+  s.setMeta(res.puzzle.id, { attempts: 3 });
+  const reloaded = createStore({ storage: ls });
+  const rec = reloaded.getPuzzle(res.puzzle.id);
+  assert.equal(rec.attempts, 3, 'attempts must persist across a reload');
+  assert.equal(rec.mode, 'strict', 'mode must persist across a reload');
+
+  // Junk normalises rather than persisting, so modeOf never sees a third value.
+  s.setMeta(res.puzzle.id, { mode: 'whatever' });
+  assert.equal(s.getPuzzle(res.puzzle.id).mode, 'casual');
+});
+
+test('stats do not blend casual and strict records', () => {
+  const s = createStore({ storage: memStorage() });
+  const a = generatePuzzle({ seed: 'SPLIT-A', difficulty: 'easy' });
+  const b = generatePuzzle({ seed: 'SPLIT-B', difficulty: 'easy' });
+  const ra = s.addPuzzle({ ...a, mode: 'casual' });
+  const rb = s.addPuzzle({ ...b, mode: 'strict' });
+  assert.ok(ra.ok && rb.ok, 'both puzzles stored');
+  s.complete(ra.puzzle.id, { solveTimeMs: 60000, mistakes: 5, hints: 0 });
+  s.complete(rb.puzzle.id, { solveTimeMs: 61000, mistakes: 0, hints: 0 });
+  // accuracy is filled/(filled+mistakes), so the fixture needs real user cells
+  // or every bucket collapses to 0 and the comparison proves nothing.
+  s.updateProgress(ra.puzzle.id, { userGrid: a.solution });
+  s.updateProgress(rb.puzzle.id, { userGrid: b.solution });
+
+  const all = summarize(s.allPuzzles(), s.doc.counters);
+  const casual = summarize(s.allPuzzles().filter((p) => p.mode === 'casual'), s.doc.counters);
+  const strict = summarize(s.allPuzzles().filter((p) => p.mode === 'strict'), s.doc.counters);
+
+  assert.equal(all.mistakes, 5, 'blended total');
+  assert.equal(casual.mistakes, 5, 'casual bucket carries its own mistakes');
+  assert.equal(strict.mistakes, 0, 'strict bucket must not absorb casual mistakes');
+  assert.notEqual(all.accuracy, strict.accuracy, 'blended accuracy must differ from strict-only');
+});
