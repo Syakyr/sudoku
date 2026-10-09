@@ -2,139 +2,142 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sudoku — seeded generator &amp; puzzle library</title>
 <meta name="description" content="Seeded Sudoku generator with difficulty-banded puzzles, uniqueness checking against every puzzle you have already played, and a local-first puzzle library.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234f8cff'/%3E%3Cg stroke='%23fff' stroke-width='1.6' fill='none'%3E%3Crect x='6' y='6' width='20' height='20'/%3E%3Cpath d='M12.7 6v20M19.3 6v20M6 12.7h20M6 19.3h20'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<header class="site">
-  <div class="brand">
-    <h1>Sudoku</h1>
-    <p class="tagline">seeded &middot; uniqueness-checked &middot; stored on your device</p>
-  </div>
-  <div class="storage-badge" id="storageBadge" title="Where your library is kept"></div>
-</header>
+<!-- one pane: the board. Everything else lives behind the hamburger. -->
+<div class="app">
 
-<main class="layout">
-  <!-- ---------------- play area ---------------- -->
-  <section class="panel play" aria-label="Play">
-    <div class="play-head">
-      <div class="timer">
-        <span id="timerText">0m 00s</span>
-        <button id="pauseBtn" class="ghost" type="button" title="Pause / resume the clock">Pause</button>
-      </div>
-      <div class="counters">
-        <span class="chip" title="Mistakes made on this puzzle">Mistakes <b id="mistakeCount">0</b></span>
-        <span class="chip" title="Hints used on this puzzle">Hints <b id="hintCount">0</b></span>
-        <span class="chip" title="Cells filled by you">Filled <b id="filledCount">0</b>/81</span>
-      </div>
+  <header class="bar">
+    <button id="menuBtn" class="icon-btn" type="button" aria-label="Open menu"
+            aria-expanded="false" aria-controls="drawer">☰</button>
+    <div class="bar-title">
+      <span class="timer" id="timerText">0m 00s</span>
+      <button id="pauseBtn" class="ghost sm" type="button" title="Pause / resume the clock">Pause</button>
     </div>
+    <div class="bar-chips">
+      <span class="chip" title="Mistakes on this puzzle">Mistakes <b id="mistakeCount">0</b></span>
+      <span class="chip" title="Hints used on this puzzle">Hints <b id="hintCount">0</b></span>
+      <span class="chip" title="Cells you have filled">Filled <b id="filledCount">0</b>/81</span>
+    </div>
+  </header>
 
+  <main class="stage">
     <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
 
     <div class="controls">
       <div class="numpad" id="numpad"></div>
       <div class="tool-buttons">
-        <button id="notesBtn" class="toggle" type="button" aria-pressed="false" title="Toggle pencil-mark mode (N)">✏️ Notes</button>
-        <button id="undoBtn" class="ghost" type="button" title="Undo (U)">↶ Undo</button>
-        <button id="eraseBtn" class="ghost" type="button" title="Erase (Backspace)">⌫ Erase</button>
-        <button id="hintBtn" class="accent" type="button" title="Reveal the next logical step (H)">💡 Hint</button>
+        <button id="notesBtn" class="toggle" type="button" aria-pressed="false" title="Pencil-mark mode (N)">Notes</button>
+        <button id="undoBtn" class="ghost" type="button" title="Undo (U)">Undo</button>
+        <button id="eraseBtn" class="ghost" type="button" title="Erase (Backspace)">Erase</button>
+        <button id="hintBtn" class="accent" type="button" title="Reveal the next logical step (H)">Hint</button>
       </div>
     </div>
 
     <div class="hint-box" id="hintBox" hidden></div>
-
     <div class="puzzle-meta" id="puzzleMeta"></div>
+  </main>
 
-    <div class="play-actions">
-      <button id="abandonBtn" class="danger-ghost" type="button" title="Mark this puzzle abandoned and start another">Abandon &amp; new</button>
-      <button id="copyShareBtn" class="ghost" type="button" title="Copy this puzzle's share token">Copy share token</button>
+  <!-- ---------------- drawer ---------------- -->
+  <div class="backdrop" id="backdrop" hidden></div>
+  <aside class="drawer" id="drawer" aria-hidden="true" aria-label="Menu">
+    <div class="drawer-head">
+      <strong>Menu</strong>
+      <button id="closeDrawerBtn" class="icon-btn" type="button" aria-label="Close menu">✕</button>
     </div>
-  </section>
 
-  <!-- ---------------- generator ---------------- -->
-  <section class="panel generator" aria-label="Generate a puzzle">
-    <h2>Generate</h2>
-    <label class="field">
-      <span>Difficulty</span>
-      <select id="difficultySelect"></select>
-    </label>
-    <p class="tier-hint" id="tierHint"></p>
-    <label class="field checkbox">
-      <input type="checkbox" id="symmetryCheck" checked>
-      <span>180° rotational symmetry (newspaper look)</span>
-    </label>
-    <label class="field">
-      <span>Seed <em>(blank = random)</em></span>
-      <input type="text" id="seedInput" maxlength="16" placeholder="e.g. 7K3P9QX2" autocomplete="off">
-    </label>
-    <button id="generateBtn" class="primary" type="button">New puzzle</button>
-    <div class="gen-status" id="genStatus" hidden></div>
-
-    <hr>
-    <h3>Import a shared puzzle</h3>
-    <label class="field">
-      <span>Share token</span>
-      <input type="text" id="importTokenInput" placeholder="sdk-7K3P9QX2-hS-3" autocomplete="off">
-    </label>
-    <button id="importTokenBtn" class="ghost" type="button">Import puzzle</button>
-    <p class="fine">A share token regenerates the exact same board on any device — the token pins the seed, tier, symmetry and the search step that produced it.</p>
-  </section>
-
-  <!-- ---------------- library + stats ---------------- -->
-  <section class="panel side" aria-label="Library and statistics">
     <nav class="tabs" id="sideTabs">
-      <button class="tab active" data-tab="library" type="button">Library</button>
+      <button class="tab active" data-tab="generate" type="button">Generate</button>
+      <button class="tab" data-tab="library" type="button">Library</button>
       <button class="tab" data-tab="stats" type="button">Stats</button>
       <button class="tab" data-tab="data" type="button">Data</button>
     </nav>
 
-    <div class="tab-body" id="tab-library">
-      <div class="subtabs" id="statusTabs">
-        <button class="subtab active" data-status="active" type="button">In progress</button>
-        <button class="subtab" data-status="completed" type="button">Completed</button>
-        <button class="subtab" data-status="abandoned" type="button">Abandoned</button>
-      </div>
-      <ul class="puzzle-list" id="puzzleList"></ul>
-      <p class="empty" id="libraryEmpty" hidden>Nothing here yet — generate a puzzle.</p>
-    </div>
+    <div class="drawer-body">
+      <div class="tab-body" id="tab-generate">
+        <label class="field">
+          <span>Difficulty</span>
+          <select id="difficultySelect"></select>
+        </label>
+        <p class="tier-hint" id="tierHint"></p>
+        <label class="field checkbox">
+          <input type="checkbox" id="symmetryCheck" checked>
+          <span>180° rotational symmetry (newspaper look)</span>
+        </label>
+        <label class="field">
+          <span>Seed <em>(blank = random)</em></span>
+          <input type="text" id="seedInput" maxlength="16" placeholder="e.g. 7K3P9QX2" autocomplete="off">
+        </label>
+        <button id="generateBtn" class="primary wide" type="button">New puzzle</button>
+        <div class="gen-status" id="genStatus" hidden></div>
 
-    <div class="tab-body" id="tab-stats" hidden>
-      <div class="stat-grid" id="statGrid"></div>
-      <h3>Per difficulty</h3>
-      <table class="tier-table" id="tierTable">
-        <thead>
-          <tr><th>Tier</th><th>Done</th><th>Avg</th><th>Best</th><th>Acc.</th><th>Hints</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <h3>What your puzzles actually needed</h3>
-      <ul class="tech-list" id="techList"></ul>
-    </div>
+        <hr>
+        <h3>Import a shared puzzle</h3>
+        <label class="field">
+          <span>Share token</span>
+          <input type="text" id="importTokenInput" placeholder="sdk-7K3P9QX2-hS-3" autocomplete="off">
+        </label>
+        <button id="importTokenBtn" class="ghost wide" type="button">Import puzzle</button>
+        <p class="fine">A share token regenerates the exact same board on any device — it pins the seed, tier, symmetry and the search step that produced it.</p>
 
-    <div class="tab-body" id="tab-data" hidden>
-      <p>Your whole library lives in this browser under one key. Export it to move between devices.</p>
-      <div class="data-actions">
-        <button id="exportBtn" class="ghost" type="button">Download JSON</button>
-        <button id="copyExportBtn" class="ghost" type="button">Copy JSON</button>
-        <label class="file-btn ghost">Upload JSON<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+        <hr>
+        <div class="play-actions">
+          <button id="abandonBtn" class="danger-ghost wide" type="button">Abandon this puzzle</button>
+          <button id="copyShareBtn" class="ghost wide" type="button">Copy share token</button>
+        </div>
       </div>
-      <div class="merge-choice">
-        <label><input type="radio" name="mergeMode" value="merge" checked> merge with current library</label>
-        <label><input type="radio" name="mergeMode" value="replace"> replace current library</label>
+
+      <div class="tab-body" id="tab-library" hidden>
+        <div class="subtabs" id="statusTabs">
+          <button class="subtab active" data-status="active" type="button">In progress</button>
+          <button class="subtab" data-status="completed" type="button">Completed</button>
+          <button class="subtab" data-status="abandoned" type="button">Abandoned</button>
+        </div>
+        <ul class="puzzle-list" id="puzzleList"></ul>
+        <p class="empty" id="libraryEmpty" hidden>Nothing here yet — generate a puzzle.</p>
       </div>
-      <div id="importReport" class="import-report"></div>
-      <hr>
-      <div class="danger-zone">
-        <h3>Danger zone</h3>
-        <button id="wipeBtn" class="danger" type="button">Delete entire library</button>
+
+      <div class="tab-body" id="tab-stats" hidden>
+        <div class="stat-grid" id="statGrid"></div>
+        <h3>Per difficulty</h3>
+        <table class="tier-table" id="tierTable">
+          <thead>
+            <tr><th>Tier</th><th>Done</th><th>Avg</th><th>Best</th><th>Acc.</th><th>Hints</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <h3>What your puzzles actually needed</h3>
+        <ul class="tech-list" id="techList"></ul>
+      </div>
+
+      <div class="tab-body" id="tab-data" hidden>
+        <p class="fine" id="storageNote">Your whole library lives in this browser under one key.</p>
+        <div class="data-actions">
+          <button id="exportBtn" class="ghost" type="button">Download JSON</button>
+          <button id="copyExportBtn" class="ghost" type="button">Copy JSON</button>
+          <label class="file-btn ghost">Upload JSON<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+        </div>
+        <div class="merge-choice">
+          <label><input type="radio" name="mergeMode" value="merge" checked> merge with current library</label>
+          <label><input type="radio" name="mergeMode" value="replace"> replace current library</label>
+        </div>
+        <div id="importReport" class="import-report"></div>
+        <hr>
+        <div class="danger-zone">
+          <h3>Danger zone</h3>
+          <button id="wipeBtn" class="danger wide" type="button">Delete entire library</button>
+        </div>
       </div>
     </div>
-  </section>
-</main>
+  </aside>
 
-<div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+</div>
 
 <script type="module" src="js/app.js"></script>
 </body>

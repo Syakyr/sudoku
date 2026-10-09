@@ -178,7 +178,7 @@ test('wiping the library clears the list', () => {
   $('sideTabs').querySelector('[data-tab="data"]').click();
   $('wipeBtn').click();
   assert.equal(document.querySelectorAll('#puzzleList .puzzle-item').length, 0);
-  assert.match($('storageBadge').textContent, /0 puzzles/);
+  assert.match($('storageNote').textContent, /0 puzzles/);
 });
 
 after(() => {

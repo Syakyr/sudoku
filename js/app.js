@@ -72,13 +72,16 @@ function init() {
 }
 
 function updateStorageBadge() {
-  const badge = $('storageBadge');
+  // The single-pane layout keeps this in the drawer's Data tab; the old top-bar
+  // element name is still supported if a layout ever puts it back.
+  const badge = $('storageBadge') || $('storageNote');
+  if (!badge) return;
   const n = store.allPuzzles().length;
   if (store.inMemory) {
-    badge.textContent = `⚠ storage unavailable — this session only (${n} puzzles)`;
-    badge.classList.add('warn');
+    badge.textContent = `⚠ Storage unavailable — this session only (${n} puzzle${n === 1 ? '' : 's'}). Export before closing the tab.`;
+    badge.classList.add('gen-status', 'bad');
   } else {
-    badge.textContent = `${n} puzzle${n === 1 ? '' : 's'} saved in this browser`;
+    badge.textContent = `${n} puzzle${n === 1 ? '' : 's'} saved in this browser under ${'sudoku.library.v1'}. Export to move them to another device.`;
   }
 }
 
@@ -330,7 +333,10 @@ function elapsed() {
 }
 
 function renderTimer() {
-  $('timerText').textContent = formatDuration(elapsed());
+  const ms = elapsed();
+  // formatDuration returns an em-dash for zero, which reads as "no puzzle" on a
+  // clock that is simply at the start.
+  $('timerText').textContent = ms > 0 ? formatDuration(ms) : '0m 00s';
 }
 
 function togglePause() {
@@ -369,6 +375,8 @@ function loadPuzzle(record) {
   renderMeta();
   renderLibrary();
   startTimer(record.progress.elapsedMs || 0);
+  // Whatever we just did (generate, import, resume), get out of the way.
+  closeDrawer();
 }
 
 function saveProgress() {
@@ -681,6 +689,34 @@ function handleImportFile(file) {
 }
 
 /* ------------------------------------------------------------------ *
+ * drawer (the single pane stays put; everything else slides in over it)
+ * ------------------------------------------------------------------ */
+
+function isDrawerOpen() {
+  return $('drawer').classList.contains('open');
+}
+
+function openDrawer() {
+  $('drawer').classList.add('open');
+  $('drawer').setAttribute('aria-hidden', 'false');
+  $('menuBtn').setAttribute('aria-expanded', 'true');
+  const bd = $('backdrop');
+  bd.hidden = false;
+  requestAnimationFrame(() => bd.classList.add('show'));
+}
+
+function closeDrawer() {
+  const bd = $('backdrop');
+  $('drawer').classList.remove('open');
+  $('drawer').setAttribute('aria-hidden', 'true');
+  $('menuBtn').setAttribute('aria-expanded', 'false');
+  bd.classList.remove('show');
+  setTimeout(() => {
+    bd.hidden = true;
+  }, 220);
+}
+
+/* ------------------------------------------------------------------ *
  * toast + clipboard
  * ------------------------------------------------------------------ */
 
@@ -771,10 +807,17 @@ function wireControls() {
     const btn = e.target.closest('.tab');
     if (!btn) return;
     for (const t of $('sideTabs').children) t.classList.toggle('active', t === btn);
-    for (const id of ['library', 'stats', 'data']) {
+    for (const id of ['generate', 'library', 'stats', 'data']) {
       $(`tab-${id}`).hidden = id !== btn.dataset.tab;
     }
   });
+
+  $('menuBtn').addEventListener('click', () => {
+    if (isDrawerOpen()) closeDrawer();
+    else openDrawer();
+  });
+  $('closeDrawerBtn').addEventListener('click', closeDrawer);
+  $('backdrop').addEventListener('click', closeDrawer);
 
   $('statusTabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.subtab');
@@ -813,6 +856,8 @@ function wireControls() {
       hint();
     } else if (e.key.toLowerCase() === 'p') {
       togglePause();
+    } else if (e.key === 'Escape') {
+      closeDrawer();
     } else if (e.key.startsWith('Arrow')) {
       moveSelection(e.key);
     }
