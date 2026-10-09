@@ -272,6 +272,40 @@ await scenario('08-data', { width: 1280, height: 1000 }, 'dark', async (page) =>
   await page.screenshot({ path: `${OUT}/08-data-tab.png`, fullPage: true });
 });
 
+await scenario('10-themes', { width: 1280, height: 1000 }, 'dark', async (page) => {
+  // Select a cell first so the accent-tinted selection background is measurable.
+  // NB: data-row/data-col are within-box (0-2); board position is data-index.
+  await page.click('.cell[data-index="40"]');
+  await openMenu(page);
+  await page.click('[data-tab="theme"]');
+  await page.waitForTimeout(250);
+  const themes = {};
+  for (const name of ['azure', 'crimson', 'amber', 'teal']) {
+    await page.click(`.swatch[data-accent="${name}"]`);
+    await page.waitForTimeout(120);
+    themes[name] = await page.evaluate(() => {
+      const cs = getComputedStyle(document.documentElement);
+      const sel = document.querySelector('.cell.selected');
+      return {
+        attr: document.documentElement.getAttribute('data-accent'),
+        stored: localStorage.getItem('sudoku.ui.theme'),
+        checked: [...document.querySelectorAll('.swatch')]
+          .filter((s) => s.getAttribute('aria-checked') === 'true')
+          .map((s) => s.dataset.accent),
+        accent: cs.getPropertyValue('--accent').trim(),
+        selectedBg: sel ? getComputedStyle(sel).backgroundColor : 'no selection'
+      };
+    });
+    if (themes[name].attr !== name) problems.push(`${name}: data-accent is ${themes[name].attr}`);
+    if (themes[name].stored !== name) problems.push(`${name}: not persisted`);
+    if (themes[name].checked.length !== 1 || themes[name].checked[0] !== name) {
+      problems.push(`${name}: swatch checked state is ${JSON.stringify(themes[name].checked)}`);
+    }
+    await page.screenshot({ path: `${OUT}/10-theme-${name}.png` });
+  }
+  results.themes = themes;
+});
+
 await browserlessSummary();
 
 async function browserlessSummary() {

@@ -8,6 +8,8 @@
   --muted: #9aa3b8;
   --accent: #4f8cff;
   --accent-2: #6ea0ff;
+  --accent-soft: rgba(79, 140, 255, .24);
+  --accent-faint: rgba(79, 140, 255, .09);
   --good: #3ecf8e;
   --bad: #ff6b6b;
   --warn: #ffb454;
@@ -22,6 +24,46 @@
   --drawer-w: min(420px, 92vw);
 }
 
+/* ------------------------------------------------------------------ *
+ * Accent presets. Orthogonal to light/dark: the base palette still comes
+ * from prefers-color-scheme, the accent layer only recolours chrome --
+ * selection, focus, buttons, links -- never the semantic good/bad/warn.
+ * #950000 is too dark to use directly on the dark palette (~2:1), so the
+ * dark variant is the same hue lifted until it clears 3:1 as a border and
+ * 4.5:1 under white button text.
+ * ------------------------------------------------------------------ */
+:root[data-accent="azure"] {
+  --accent: #4f8cff;
+  --accent-2: #6ea0ff;
+  --accent-soft: rgba(79, 140, 255, .24);
+  --accent-faint: rgba(79, 140, 255, .09);
+  --user: #7fb3ff;
+}
+
+:root[data-accent="crimson"] {
+  --accent: #cc1f1f;
+  --accent-2: #ff8f8f;
+  --accent-soft: rgba(204, 31, 31, .26);
+  --accent-faint: rgba(204, 31, 31, .10);
+  --user: #ff9a9a;
+}
+
+:root[data-accent="amber"] {
+  --accent: #d98a12;
+  --accent-2: #ffc061;
+  --accent-soft: rgba(217, 138, 18, .24);
+  --accent-faint: rgba(217, 138, 18, .09);
+  --user: #ffcb80;
+}
+
+:root[data-accent="teal"] {
+  --accent: #12a08c;
+  --accent-2: #4fd6c0;
+  --accent-soft: rgba(18, 160, 140, .24);
+  --accent-faint: rgba(18, 160, 140, .09);
+  --user: #7fe3d1;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     --bg: #f4f6fb;
@@ -33,6 +75,38 @@
     --muted: #5b6478;
     --user: #2f6fd0;
     --note: #7a8499;
+  }
+
+  /* Light-mode accent layer. Declared inside the same media query and after the
+     base block so it wins over it at equal specificity. Here #950000 is used
+     essentially as-is: on a light ground it is already ~8:1. */
+  :root[data-accent="azure"] {
+    --accent: #2f6fd0;
+    --accent-2: #2a63bb;
+    --accent-soft: rgba(47, 111, 208, .18);
+    --accent-faint: rgba(47, 111, 208, .07);
+    --user: #2f6fd0;
+  }
+  :root[data-accent="crimson"] {
+    --accent: #950000;
+    --accent-2: #a80a0a;
+    --accent-soft: rgba(149, 0, 0, .16);
+    --accent-faint: rgba(149, 0, 0, .06);
+    --user: #8c1010;
+  }
+  :root[data-accent="amber"] {
+    --accent: #9a6508;
+    --accent-2: #8a5b06;
+    --accent-soft: rgba(154, 101, 8, .18);
+    --accent-faint: rgba(154, 101, 8, .07);
+    --user: #7d5406;
+  }
+  :root[data-accent="teal"] {
+    --accent: #0a7263;
+    --accent-2: #086054;
+    --accent-soft: rgba(10, 114, 99, .18);
+    --accent-faint: rgba(10, 114, 99, .07);
+    --user: #0a6154;
   }
 }
 
@@ -141,10 +215,12 @@ body {
 .cell[data-row="2"], .cell[data-row="5"] { border-bottom: 2px solid var(--line-strong); }
 .cell.given { color: var(--given); font-weight: 600; }
 .cell.user { color: var(--user); }
-.cell.wrong { color: var(--bad); }
-.cell.selected { background: rgba(79,140,255,.24); }
-.cell.peer { background: rgba(79,140,255,.09); }
-.cell.same-digit { background: rgba(62,207,142,.16); }
+.cell.selected { background: var(--accent-soft); }
+.cell.peer { background: var(--accent-faint); }
+.cell.same-digit { background: rgba(62, 207, 142, .16); }
+/* Wrong digits get a wash as well as a colour, so "wrong" is never carried by
+   hue alone - which matters once the accent itself is red. */
+.cell.wrong { color: var(--bad); background: rgba(255, 107, 107, .14); }
 .cell.hint { outline: 2px solid var(--good); outline-offset: -2px; }
 .cell.just-placed { animation: pop .16s ease-out; }
 @keyframes pop { from { transform: scale(.86); } to { transform: scale(1); } }
@@ -399,6 +475,35 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
 
 .tech-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .tech-list li { font-size: 11px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+
+/* ---------------- theme picker ---------------- */
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 13px 6px 8px;
+  cursor: pointer;
+}
+.swatch:hover { border-color: var(--accent); }
+.swatch[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.swatch .dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dot);
+  border: 1px solid rgba(255, 255, 255, .28);
+  flex: 0 0 auto;
+}
 
 .data-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 /* The upload control is a <label> wrapping a hidden input, so it needs the same

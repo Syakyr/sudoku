@@ -7,6 +7,13 @@
 <meta name="description" content="Seeded Sudoku generator with difficulty-banded puzzles, uniqueness checking against every puzzle you have already played, and a local-first puzzle library.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234f8cff'/%3E%3Cg stroke='%23fff' stroke-width='1.6' fill='none'%3E%3Crect x='6' y='6' width='20' height='20'/%3E%3Cpath d='M12.7 6v20M19.3 6v20M6 12.7h20M6 19.3h20'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
+<script>
+  /* Applied before first paint so a saved accent never flashes the default blue. */
+  try {
+    var savedAccent = localStorage.getItem('sudoku.ui.theme');
+    if (savedAccent) document.documentElement.setAttribute('data-accent', savedAccent);
+  } catch (e) { /* storage blocked: fall back to the default accent */ }
+</script>
 </head>
 <body>
 <!-- one pane: the board. Everything else lives behind the hamburger. -->
@@ -72,6 +79,7 @@
       <button class="tab" data-tab="library" type="button">Library</button>
       <button class="tab" data-tab="stats" type="button">Stats</button>
       <button class="tab" data-tab="data" type="button">Data</button>
+      <button class="tab" data-tab="theme" type="button">Theme</button>
     </nav>
 
     <div class="drawer-body">
@@ -148,6 +156,18 @@
           <h3>Danger zone</h3>
           <button id="wipeBtn" class="danger wide" type="button">Delete entire library</button>
         </div>
+      </div>
+
+      <div class="tab-body" id="tab-theme" hidden>
+        <p class="fine">Accent colour for selection, focus and buttons. Light or dark still follows your system setting.</p>
+        <div class="swatches" id="swatches" role="radiogroup" aria-label="Accent colour">
+          <button class="swatch" type="button" role="radio" data-accent="azure" aria-checked="false"><span class="dot" style="--dot:#4f8cff"></span>Azure</button>
+          <button class="swatch" type="button" role="radio" data-accent="crimson" aria-checked="false"><span class="dot" style="--dot:#950000"></span>Crimson</button>
+          <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#d98a12"></span>Amber</button>
+          <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#12a08c"></span>Teal</button>
+        </div>
+        <hr>
+        <p class="fine" id="themeNote"></p>
       </div>
     </div>
   </aside>

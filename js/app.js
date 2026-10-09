@@ -787,6 +787,32 @@ function buildDifficultySelect() {
   $('tierHint').textContent = TIERS.easy.hint;
 }
 
+/**
+ * Accent theme. Orthogonal to light/dark, which stays on prefers-color-scheme.
+ * The inline script in index.html already applied the stored value before first
+ * paint; this only keeps the DOM, the swatch states and storage in step.
+ */
+const THEME_KEY = 'sudoku.ui.theme';
+const ACCENTS = ['azure', 'crimson', 'amber', 'teal'];
+
+function currentAccent() {
+  const a = document.documentElement.getAttribute('data-accent');
+  return ACCENTS.includes(a) ? a : 'azure';
+}
+
+function applyAccent(name) {
+  if (!ACCENTS.includes(name)) name = 'azure';
+  document.documentElement.setAttribute('data-accent', name);
+  try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* storage blocked */ }
+  for (const s of $('swatches').children) {
+    s.setAttribute('aria-checked', String(s.dataset.accent === name));
+  }
+  const note = $('themeNote');
+  if (note) {
+    note.textContent = `Accent "${name}" saved on this browser. Light or dark still follows your system setting.`;
+  }
+}
+
 function wireControls() {
   $('generateBtn').addEventListener('click', () => {
     const seed = $('seedInput').value.trim() || undefined;
@@ -814,10 +840,16 @@ function wireControls() {
     const btn = e.target.closest('.tab');
     if (!btn) return;
     for (const t of $('sideTabs').children) t.classList.toggle('active', t === btn);
-    for (const id of ['generate', 'library', 'stats', 'data']) {
+    for (const id of ['generate', 'library', 'stats', 'data', 'theme']) {
       $(`tab-${id}`).hidden = id !== btn.dataset.tab;
     }
   });
+
+  $('swatches').addEventListener('click', (e) => {
+    const s = e.target.closest('.swatch');
+    if (s) applyAccent(s.dataset.accent);
+  });
+  applyAccent(currentAccent());
 
   $('menuBtn').addEventListener('click', () => {
     if (isDrawerOpen()) closeDrawer();
