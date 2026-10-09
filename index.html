@@ -78,8 +78,7 @@
       <button class="tab active" data-tab="generate" type="button">Generate</button>
       <button class="tab" data-tab="library" type="button">Library</button>
       <button class="tab" data-tab="stats" type="button">Stats</button>
-      <button class="tab" data-tab="data" type="button">Data</button>
-      <button class="tab" data-tab="theme" type="button">Theme</button>
+      <button class="tab" data-tab="settings" type="button">Settings</button>
     </nav>
 
     <div class="drawer-body">
@@ -139,7 +138,23 @@
         <ul class="tech-list" id="techList"></ul>
       </div>
 
-      <div class="tab-body" id="tab-data" hidden>
+      <div class="tab-body" id="tab-settings" hidden>
+        <section class="set-group" id="themeGroups">
+          <h3 class="set-title"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M20.6 13.6A8.5 8.5 0 1 1 10.4 3.4a7 7 0 0 0 10.2 10.2z"/></svg> Dark</h3>
+          <div class="swatches" role="group" aria-label="Dark themes">
+            <button class="swatch" type="button" role="radio" data-accent="azure" aria-checked="false"><span class="dot" style="--dot:#4f8cff; --dot-bg:#0f1117"></span>Azure</button>
+            <button class="swatch" type="button" role="radio" data-accent="crimson" aria-checked="false"><span class="dot" style="--dot:#ff5f5f; --dot-bg:#150a0b"></span>Crimson</button>
+          </div>
+          <h3 class="set-title"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg> Light</h3>
+          <div class="swatches" role="group" aria-label="Light themes">
+            <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#a86f08; --dot-bg:#fdf7ef"></span>Amber</button>
+            <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#0d7a6b; --dot-bg:#f2faf8"></span>Teal</button>
+          </div>
+          <p class="fine" id="themeNote"></p>
+        </section>
+        <hr>
+        <section class="set-group">
+          <h3 class="set-title">Data</h3>
         <p class="fine" id="storageNote">Your whole library lives in this browser under one key.</p>
         <div class="data-actions">
           <button id="exportBtn" class="ghost" type="button">Download JSON</button>
@@ -156,19 +171,9 @@
           <h3>Danger zone</h3>
           <button id="wipeBtn" class="danger wide" type="button">Delete entire library</button>
         </div>
+        </section>
       </div>
 
-      <div class="tab-body" id="tab-theme" hidden>
-        <p class="fine">Each theme fixes its own light or dark mode, shown on the swatch. Picking one overrides your system setting.</p>
-        <div class="swatches" id="swatches" role="radiogroup" aria-label="Theme">
-          <button class="swatch" type="button" role="radio" data-accent="azure" aria-checked="false"><span class="dot" style="--dot:#4f8cff; --dot-bg:#0f1117"></span><span class="sw-name">Azure</span><span class="mode dark">Dark</span></button>
-          <button class="swatch" type="button" role="radio" data-accent="crimson" aria-checked="false"><span class="dot" style="--dot:#ff5f5f; --dot-bg:#150a0b"></span><span class="sw-name">Crimson</span><span class="mode dark">Dark</span></button>
-          <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#a86f08; --dot-bg:#fdf7ef"></span><span class="sw-name">Amber</span><span class="mode light">Light</span></button>
-          <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#0d7a6b; --dot-bg:#f2faf8"></span><span class="sw-name">Teal</span><span class="mode light">Light</span></button>
-        </div>
-        <hr>
-        <p class="fine" id="themeNote"></p>
-      </div>
     </div>
   </aside>
 

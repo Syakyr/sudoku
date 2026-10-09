@@ -498,6 +498,22 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
 
 /* ---------------- theme picker ---------------- */
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Settings sections: the theme picker is grouped by mode, with the sun/moon
+   icon carrying the category instead of the words. */
+.set-group { margin: 0 0 4px; }
+.set-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.set-title .ico { flex: 0 0 auto; opacity: .9; }
+
 .swatch {
   display: inline-flex;
   align-items: center;
@@ -536,17 +552,6 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
   border-radius: 3px;
   background: var(--dot);
 }
-.swatch .mode {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-}
-.swatch .mode.dark { color: #8fa6c8; }
-.swatch .mode.light { color: #b0873a; }
 
 .data-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 /* The upload control is a <label> wrapping a hidden input, so it needs the same

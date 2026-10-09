@@ -176,7 +176,7 @@ test('difficulty select offers all five tiers with hints', () => {
 });
 
 test('wiping the library clears the list', () => {
-  $('sideTabs').querySelector('[data-tab="data"]').click();
+  $('sideTabs').querySelector('[data-tab="settings"]').click();
   $('wipeBtn').click();
   assert.equal(document.querySelectorAll('#puzzleList .puzzle-item').length, 0);
   assert.match($('storageNote').textContent, /0 puzzles/);

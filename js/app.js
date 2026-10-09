@@ -824,12 +824,12 @@ function applyAccent(name) {
   if (!ACCENTS.includes(name)) name = 'azure';
   document.documentElement.setAttribute('data-accent', name);
   try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* storage blocked */ }
-  for (const s of $('swatches').children) {
+  for (const s of document.querySelectorAll('.swatch')) {
     s.setAttribute('aria-checked', String(s.dataset.accent === name));
   }
   const note = $('themeNote');
   if (note) {
-    note.textContent = `Theme "${name}" (${THEME_MODE[name]}) saved on this browser. This overrides your system light/dark setting; Azure and Crimson are dark, Amber and Teal are light.`;
+    note.textContent = `Theme "${name}" saved. Picking a theme overrides your system light/dark setting.`;
   }
 }
 
@@ -860,12 +860,12 @@ function wireControls() {
     const btn = e.target.closest('.tab');
     if (!btn) return;
     for (const t of $('sideTabs').children) t.classList.toggle('active', t === btn);
-    for (const id of ['generate', 'library', 'stats', 'data', 'theme']) {
+    for (const id of ['generate', 'library', 'stats', 'settings']) {
       $(`tab-${id}`).hidden = id !== btn.dataset.tab;
     }
   });
 
-  $('swatches').addEventListener('click', (e) => {
+  $('themeGroups').addEventListener('click', (e) => {
     const s = e.target.closest('.swatch');
     if (s) applyAccent(s.dataset.accent);
   });

@@ -223,7 +223,7 @@ await scenario('06-theme-mode', { width: 1280, height: 1000 }, 'light', async (p
   }
 
   await openMenu(page);
-  await page.click('[data-tab="theme"]');
+  await page.click('[data-tab="settings"]');
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/06-picker.png` });
 
@@ -274,7 +274,7 @@ await scenario('07-textcheck', { width: 1280, height: 1000 }, 'dark', async (pag
 
 await scenario('08-data', { width: 1280, height: 1000 }, 'dark', async (page) => {
   await openMenu(page);
-  await page.click('[data-tab="data"]');
+  await page.click('[data-tab="settings"]');
   await page.waitForTimeout(250);
   const btns = await page.evaluate(() => {
     const pick = (sel) => {
@@ -314,7 +314,7 @@ await scenario('10-themes', { width: 1280, height: 1000 }, 'dark', async (page) 
   // NB: data-row/data-col are within-box (0-2); board position is data-index.
   await page.click('.cell[data-index="40"]');
   await openMenu(page);
-  await page.click('[data-tab="theme"]');
+  await page.click('[data-tab="settings"]');
   await page.waitForTimeout(250);
   const themes = {};
   for (const name of ['azure', 'crimson', 'amber', 'teal']) {
