@@ -248,6 +248,12 @@ function pushUndo() {
 }
 
 function undo() {
+  // Strict mode: the cheap invisible takeback is off. Reset is still available,
+  // because throwing away a whole puzzle is a deliberate, recorded act.
+  if (state.puzzle && state.puzzle.mode === 'strict') {
+    toast('Strict puzzle — undo is not available. Use Reset to start over.', 'bad');
+    return;
+  }
   const snap = state.undoStack.pop();
   if (!snap) return;
   state.values = snap.values;
@@ -256,6 +262,42 @@ function undo() {
   state.selected = snap.selected;
   saveProgress();
   renderBoard();
+}
+
+/**
+ * Clear the puzzle back to its givens and start a new attempt. This never
+ * deletes history -- it increments `attempts`, so a clean run (attempt 1) stays
+ * permanently distinguishable from one that was wiped and retried. That is what
+ * keeps strict mode from becoming self-reported theatre.
+ */
+function resetPuzzle() {
+  if (!state.puzzle) return;
+  if (!confirm('Reset this puzzle? Your digits, pencil marks, timer and mistake count are cleared and the attempt counter goes up by one.')) {
+    return;
+  }
+  const given = parseGrid(state.puzzle.grid);
+  state.values = new Uint8Array(given);
+  state.notes = new Array(81).fill(0);
+  state.mistakes = 0;
+  state.hints = 0;
+  state.undoStack = [];
+  state.selected = -1;
+  state.puzzle.attempts = (state.puzzle.attempts || 1) + 1;
+  $('hintBox').hidden = true;
+  store.updateProgress(state.puzzle.id, {
+    userGrid: gridToString(state.values),
+    notes: '',
+    elapsedMs: 0,
+    mistakes: 0,
+    hints: 0,
+    attempts: state.puzzle.attempts
+  });
+  startTimer(0);
+  renderBoard();
+  renderMeta();
+  renderLibrary();
+  closeDrawer();
+  toast(`Reset — attempt ${state.puzzle.attempts}`, 'good');
 }
 
 function toggleNotes() {
@@ -366,6 +408,20 @@ function togglePause() {
  * puzzle lifecycle
  * ------------------------------------------------------------------ */
 
+/** Reflect the takeback mode: the undo control must not look available in strict. */
+function syncModeUi() {
+  const strict = $('modeSelect').value === 'strict';
+  $('modeHint').textContent = strict
+    ? 'Strict: every placement is final. Undo is off; Erase and Reset still work, and a reset is recorded as a new attempt.'
+    : 'Casual: undo as much as you like. The mistake count is not a score here, since any charge can be taken back.';
+  const ub = $('undoBtn');
+  const currentStrict = state.puzzle && state.puzzle.mode === 'strict';
+  ub.disabled = !!currentStrict;
+  ub.title = currentStrict ? 'Strict puzzle — undo is not available' : 'Undo (U)';
+  // The footer carries the mode badge, so refresh it here too.
+  renderMeta();
+}
+
 function loadPuzzle(record) {
   state.puzzle = record;
   state.values = parseGrid(record.progress.userGrid || record.grid);
@@ -381,6 +437,7 @@ function loadPuzzle(record) {
   renderBoard();
   renderMeta();
   renderLibrary();
+  syncModeUi();
   startTimer(record.progress.elapsedMs || 0);
   // Whatever we just did (generate, import, resume), get out of the way.
   closeDrawer();
@@ -452,7 +509,7 @@ function abandonCurrent() {
 
 const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
 
-async function startGeneration({ seed, difficulty, symmetry }) {
+async function startGeneration({ seed, difficulty, symmetry, mode }) {
   if (state.generating) return;
   state.generating = true;
   const status = $('genStatus');
@@ -471,6 +528,11 @@ async function startGeneration({ seed, difficulty, symmetry }) {
     let p;
     try {
       p = generatePuzzle({ seed: useSeed, difficulty, symmetry, attempt });
+      // The takeback mode is fixed for the life of the puzzle. Choosing it up
+      // front is what makes strict mode mean anything: switching to casual after
+      // a bad mistake would be exactly the takeback strict mode exists to forbid.
+      p.mode = mode === 'strict' ? 'strict' : 'casual';
+      p.attempts = 1;
     } catch (err) {
       status.textContent = `Generation failed: ${err.message}`;
       status.classList.add('bad');
@@ -564,6 +626,8 @@ function renderMeta() {
   box.appendChild(kv('Rating', describeRating(p.rating)));
   box.appendChild(kv('Seed', p.seed || '—', true));
   box.appendChild(kv('Symmetry', p.symmetry ? '180°' : 'none'));
+  box.appendChild(kv('Mode', p.mode === 'strict' ? 'Strict · no undo' : 'Casual'));
+  if ((p.attempts || 1) > 1) box.appendChild(kv('Attempt', String(p.attempts)));
   box.appendChild(kv('Share token', p.share || '—', true));
 }
 
@@ -839,9 +903,13 @@ function wireControls() {
     startGeneration({
       seed,
       difficulty: $('difficultySelect').value,
-      symmetry: $('symmetryCheck').checked
+      symmetry: $('symmetryCheck').checked,
+      mode: $('modeSelect').value
     });
   });
+  $('resetBtn').addEventListener('click', resetPuzzle);
+  $('modeSelect').addEventListener('change', syncModeUi);
+  syncModeUi();
   $('importTokenBtn').addEventListener('click', importToken);
   $('importTokenInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') importToken();
@@ -943,8 +1011,18 @@ function moveSelection(key) {
 
 init();
 
+// Installable as a standalone app, and fully usable offline once cached.
+// Relative path so the scope lands on /sudoku/ under a project page.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      /* offline support is an enhancement; never break the app over it */
+    });
+  });
+}
+
 /**
  * Debug handle: `sudokuApp` in the browser console lets you inspect live state,
  * and lets the DOM test harness shut the clock down so the process can exit.
  */
-globalThis.sudokuApp = { state, store, stopTimer, startGeneration };
+globalThis.sudokuApp = { state, store, stopTimer, startGeneration, PEERS, syncModeUi };

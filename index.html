@@ -7,6 +7,11 @@
 <meta name="description" content="Seeded Sudoku generator with difficulty-banded puzzles, uniqueness checking against every puzzle you have already played, and a local-first puzzle library.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234f8cff'/%3E%3Cg stroke='%23fff' stroke-width='1.6' fill='none'%3E%3Crect x='6' y='6' width='20' height='20'/%3E%3Cpath d='M12.7 6v20M19.3 6v20M6 12.7h20M6 19.3h20'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sudoku">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <script>
   /* Applied before first paint so a saved accent never flashes the default blue. */
   try {
@@ -93,6 +98,14 @@
           <span>180° rotational symmetry (newspaper look)</span>
         </label>
         <label class="field">
+          <span>Takebacks</span>
+          <select id="modeSelect">
+            <option value="casual">Casual — undo allowed</option>
+            <option value="strict">Strict — no undo, mistakes stick</option>
+          </select>
+        </label>
+        <p class="tier-hint" id="modeHint"></p>
+        <label class="field">
           <span>Seed <em>(blank = random)</em></span>
           <input type="text" id="seedInput" maxlength="16" placeholder="e.g. 7K3P9QX2" autocomplete="off">
         </label>
@@ -110,6 +123,7 @@
 
         <hr>
         <div class="play-actions">
+          <button id="resetBtn" class="ghost wide" type="button">Reset this puzzle</button>
           <button id="abandonBtn" class="danger-ghost wide" type="button">Abandon this puzzle</button>
           <button id="copyShareBtn" class="ghost wide" type="button">Copy share token</button>
         </div>
