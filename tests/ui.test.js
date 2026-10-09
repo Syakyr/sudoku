@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
-import { createStore } from '../js/store.js';
+import { createStore, STATUS } from '../js/store.js';
+import { PEERS } from '../js/board.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(path.join(here, '..', 'index.html'), 'utf8');
@@ -185,4 +186,74 @@ after(() => {
   // The running clock would otherwise hold the event loop open forever.
   if (globalThis.sudokuApp) globalThis.sudokuApp.stopTimer();
   dom.window.close();
+});
+
+test('wrong-flagging follows visible conflicts, not the stored solution', async () => {
+  // Fresh board: prior tests may have solved or dirtied the current puzzle.
+  $('generateBtn').click();
+  await waitFor(() => {
+    const cells = [...document.querySelectorAll('#board .cell')];
+    return cells.filter((c) => !c.classList.contains('given') && !c.textContent.trim()).length > 20;
+  }, 30000, 'a fresh unsolved board');
+
+  // Read the givens off the DOM: that is what the player can actually see.
+  const arr = new Array(81).fill('.');
+  for (const c of document.querySelectorAll('#board .cell')) {
+    if (c.classList.contains('given')) arr[Number(c.dataset.index)] = c.textContent.trim();
+  }
+  const grid = arr.join('');
+  const rec = createStore({ storage: localStorage })
+    .allPuzzles()
+    .find((p) => p.grid === grid && p.solution);
+  assert.ok(rec, 'current puzzle located in the library by its visible givens');
+  const sol = rec.solution;
+
+  const cellAt = (i) => document.querySelector(`#board .cell[data-index="${i}"]`);
+  const digit = (d) => [...$('numpad').children].find((b) => b.dataset.digit === String(d));
+
+  // 1. A move that differs from the solution but clashes with nothing visible.
+  //    The old code compared against the solution and flagged this, which handed
+  //    out the answer with no visible justification.
+  let fair = -1;
+  let fairD = 0;
+  for (let i = 0; i < 81 && fair < 0; i++) {
+    if (grid[i] !== '.') continue;
+    for (let d = 1; d <= 9; d++) {
+      if (String(d) === sol[i]) continue;
+      if (PEERS[i].some((j) => grid[j] === String(d))) continue;
+      fair = i;
+      fairD = d;
+      break;
+    }
+  }
+  assert.ok(fair >= 0, 'a non-conflicting, solution-divergent move exists');
+  cellAt(fair).click();
+  digit(fairD).click();
+  assert.ok(
+    !cellAt(fair).classList.contains('wrong'),
+    'a digit that conflicts with nothing must not be flagged wrong'
+  );
+  assert.equal($('mistakeCount').textContent, '0', 'no mistake for a non-conflicting placement');
+
+  // 2. A real duplicate IS flagged, so the check exists rather than being off.
+  let dup = -1;
+  let dupD = 0;
+  for (let i = 0; i < 81 && dup < 0; i++) {
+    if (grid[i] !== '.') continue;
+    for (let d = 1; d <= 9; d++) {
+      if (PEERS[i].some((j) => grid[j] === String(d))) {
+        dup = i;
+        dupD = d;
+        break;
+      }
+    }
+  }
+  assert.ok(dup >= 0, 'a conflicting move exists');
+  cellAt(dup).click();
+  digit(dupD).click();
+  assert.ok(
+    cellAt(dup).classList.contains('wrong'),
+    'a duplicate inside a unit must still be flagged'
+  );
+  assert.equal($('mistakeCount').textContent, '1', 'the duplicate counts as one mistake');
 });

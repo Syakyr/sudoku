@@ -117,7 +117,7 @@ function renderBoard() {
     const node = cellNodes[i];
     const v = state.values[i];
     const isGiven = given[i] !== 0;
-    const wrong = v !== 0 && !isGiven && sol && sol[i] !== v;
+    const wrong = v !== 0 && !isGiven && conflictsAt(i);
 
     node.className = 'cell';
     node.dataset.row = String(rowOf(i) % 3);
@@ -205,7 +205,7 @@ function inputDigit(d) {
     if (state.notes[p]) state.notes[p] &= ~(1 << d);
   }
   const sol = state.puzzle.solution ? parseGrid(state.puzzle.solution) : null;
-  if (sol && sol[i] !== d) state.mistakes++;
+  if (conflictsAt(i)) state.mistakes++;
   cellNodes[i].classList.add('just-placed');
   saveProgress();
   renderBoard();
@@ -395,6 +395,25 @@ function saveProgress() {
     mistakes: state.mistakes,
     hints: state.hints
   });
+}
+
+/**
+ * Live error feedback is based on visible conflicts only: a digit is flagged when
+ * it duplicates another placed digit in the same row, column or box. It is NOT
+ * flagged for merely diverging from the stored solution.
+ *
+ * That distinction is the whole game. A cell that contradicts the solution but
+ * conflicts with nothing cannot be justified from what the player can see, so
+ * marking it red hands out the answer and leaves the player with an
+ * unexplainable "wrong". A duplicate, by contrast, explains itself -- you can
+ * look across the band and see the other 5. Fill the board with no conflicts and
+ * you have the unique solution anyway.
+ */
+function conflictsAt(i) {
+  const v = state.values[i];
+  if (!v) return false;
+  for (const j of PEERS[i]) if (state.values[j] === v) return true;
+  return false;
 }
 
 function checkComplete() {
