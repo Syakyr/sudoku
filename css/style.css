@@ -70,7 +70,7 @@ body {
   background: var(--panel);
 }
 .bar-title { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-.timer { font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.timer { font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: .02em; white-space: nowrap; }
 .bar-chips { display: flex; gap: 6px; }
 .chip {
   background: var(--panel-2);
@@ -252,23 +252,33 @@ button .key { color: inherit; text-decoration: underline; }
   flex: 0 0 auto;
   border-top: 1px solid var(--line);
   background: var(--panel);
-  padding: 6px 12px;
+  padding: 7px 18px;
   display: flex;
   justify-content: center;
 }
 
+/* Spread the items across whatever width is available, and keep each label off
+   its value - inline span + b used to collide into "DifficultyEasy". */
 .puzzle-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 14px;
-  justify-content: center;
-  font-size: 11px;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 18px;
+  row-gap: 4px;
+  width: 100%;
+  font-size: 11.5px;
   color: var(--muted);
-  max-width: 100%;
-  text-align: center;
 }
+.puzzle-meta .kv {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+.puzzle-meta .kv > span { color: var(--muted); }
 .puzzle-meta .kv b { color: var(--text); font-weight: 600; }
-.puzzle-meta code { font-size: 10.5px; }
+.puzzle-meta code { font-size: 11px; }
 
 /* ---------------- drawer ---------------- */
 .backdrop {
@@ -427,6 +437,17 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
 }
 .toast.bad { border-color: var(--bad); }
 .toast.good { border-color: var(--good); }
+
+/* narrow phones: tighten the bar so the timer never wraps and the chips keep a
+   real margin off the edge (they were landing flush at 389/390) */
+@media (max-width: 430px) {
+  .bar { gap: 5px; padding: 0 10px; }
+  .bar-title { gap: 5px; }
+  .bar-chips { gap: 4px; margin-left: auto; min-width: 0; }
+  .chip { padding: 2px 5px; font-size: 10.5px; white-space: nowrap; }
+  .timer { font-size: 15px; }
+  #pauseBtn { padding: 3px 7px; font-size: 11px; }
+}
 
 /* short viewports: hand more height back to the board */
 @media (max-height: 620px) {
