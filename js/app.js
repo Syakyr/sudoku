@@ -313,12 +313,19 @@ function hint() {
  * timer
  * ------------------------------------------------------------------ */
 
+/** Pause label keeps its mnemonic highlight, so it can't be a plain textContent. */
+function setPauseLabel(paused) {
+  $('pauseBtn').innerHTML = paused
+    ? 'Resume'
+    : '<span class="key">P</span>ause';
+}
+
 function startTimer(baseMs) {
   stopTimer();
   state.elapsedBase = baseMs || 0;
   state.timerStart = Date.now();
   state.paused = false;
-  $('pauseBtn').textContent = 'Pause';
+  setPauseLabel(false);
   state.interval = setInterval(renderTimer, 500);
   renderTimer();
 }
@@ -344,12 +351,12 @@ function togglePause() {
     state.paused = false;
     state.timerStart = Date.now();
     state.interval = setInterval(renderTimer, 500);
-    $('pauseBtn').textContent = 'Pause';
+    setPauseLabel(false);
   } else {
     state.elapsedBase = elapsed();
     state.paused = true;
     stopTimer();
-    $('pauseBtn').textContent = 'Resume';
+    setPauseLabel(true);
     saveProgress();
   }
   renderTimer();
@@ -847,6 +854,8 @@ function wireControls() {
       inputDigit(Number(e.key));
     } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
       e.preventDefault();
+      erase();
+    } else if (e.key.toLowerCase() === 'e') {
       erase();
     } else if (e.key.toLowerCase() === 'n') {
       toggleNotes();

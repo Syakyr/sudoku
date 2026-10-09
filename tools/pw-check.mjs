@@ -235,6 +235,43 @@ await scenario('07-textcheck', { width: 1280, height: 1000 }, 'dark', async (pag
   }
 });
 
+await scenario('08-data', { width: 1280, height: 1000 }, 'dark', async (page) => {
+  await openMenu(page);
+  await page.click('[data-tab="data"]');
+  await page.waitForTimeout(250);
+  const btns = await page.evaluate(() => {
+    const pick = (sel) => {
+      const n = document.querySelector(sel);
+      if (!n) return null;
+      const s = getComputedStyle(n);
+      return {
+        text: n.textContent.trim().slice(0, 14),
+        border: s.borderTopWidth + ' ' + s.borderTopColor,
+        radius: s.borderTopLeftRadius,
+        pad: s.paddingTop,
+        bg: s.backgroundColor
+      };
+    };
+    return {
+      download: pick('#exportBtn'),
+      copy: pick('#copyExportBtn'),
+      upload: pick('.file-btn')
+    };
+  });
+  results.dataButtons = btns;
+  const d = btns.download;
+  const u = btns.upload;
+  if (!u) problems.push('upload control missing');
+  else {
+    for (const prop of ['border', 'radius', 'pad']) {
+      if (d[prop] !== u[prop]) {
+        problems.push(`upload button differs on ${prop}: ${u[prop]} vs download ${d[prop]}`);
+      }
+    }
+  }
+  await page.screenshot({ path: `${OUT}/08-data-tab.png`, fullPage: true });
+});
+
 await browserlessSummary();
 
 async function browserlessSummary() {

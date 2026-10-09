@@ -17,7 +17,7 @@
             aria-expanded="false" aria-controls="drawer">☰</button>
     <div class="bar-title">
       <span class="timer" id="timerText">0m 00s</span>
-      <button id="pauseBtn" class="ghost sm" type="button" title="Pause / resume the clock">Pause</button>
+      <button id="pauseBtn" class="ghost sm" type="button" title="Pause / resume the clock"><span class="key">P</span>ause</button>
     </div>
     <div class="bar-chips">
       <span class="chip" title="Mistakes on this puzzle">Mistakes <b id="mistakeCount">0</b></span>
@@ -26,22 +26,38 @@
     </div>
   </header>
 
+  <!-- shortcut strip: the underlined letter is the key -->
+  <div class="keybar" id="keybar" aria-label="Keyboard shortcuts">
+    <span class="kb"><span class="key">1</span>–<span class="key">9</span> place</span>
+    <span class="kb"><span class="key">N</span>otes</span>
+    <span class="kb"><span class="key">U</span>ndo</span>
+    <span class="kb"><span class="key">E</span>rase</span>
+    <span class="kb"><span class="key">H</span>int</span>
+    <span class="kb"><span class="key">P</span>ause</span>
+    <span class="kb"><span class="key">Esc</span> menu</span>
+    <span class="kb"><span class="key">↑↓←→</span> move</span>
+  </div>
+
   <main class="stage">
     <div id="board" class="board" role="grid" aria-label="Sudoku board"></div>
 
     <div class="controls">
       <div class="numpad" id="numpad"></div>
       <div class="tool-buttons">
-        <button id="notesBtn" class="toggle" type="button" aria-pressed="false" title="Pencil-mark mode (N)">Notes</button>
-        <button id="undoBtn" class="ghost" type="button" title="Undo (U)">Undo</button>
-        <button id="eraseBtn" class="ghost" type="button" title="Erase (Backspace)">Erase</button>
-        <button id="hintBtn" class="accent" type="button" title="Reveal the next logical step (H)">Hint</button>
+        <button id="notesBtn" class="toggle" type="button" aria-pressed="false" title="Pencil-mark mode (N)"><span class="key">N</span>otes</button>
+        <button id="undoBtn" class="ghost" type="button" title="Undo (U)"><span class="key">U</span>ndo</button>
+        <button id="eraseBtn" class="ghost" type="button" title="Erase (E or Backspace)"><span class="key">E</span>rase</button>
+        <button id="hintBtn" class="accent" type="button" title="Reveal the next logical step (H)"><span class="key">H</span>int</button>
       </div>
     </div>
 
     <div class="hint-box" id="hintBox" hidden></div>
-    <div class="puzzle-meta" id="puzzleMeta"></div>
   </main>
+
+  <!-- footer: what this puzzle actually is -->
+  <footer class="foot">
+    <div class="puzzle-meta" id="puzzleMeta"></div>
+  </footer>
 
   <!-- ---------------- drawer ---------------- -->
   <div class="backdrop" id="backdrop" hidden></div>
