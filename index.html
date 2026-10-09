@@ -159,12 +159,12 @@
       </div>
 
       <div class="tab-body" id="tab-theme" hidden>
-        <p class="fine">Accent colour for selection, focus and buttons. Light or dark still follows your system setting.</p>
-        <div class="swatches" id="swatches" role="radiogroup" aria-label="Accent colour">
-          <button class="swatch" type="button" role="radio" data-accent="azure" aria-checked="false"><span class="dot" style="--dot:#4f8cff"></span>Azure</button>
-          <button class="swatch" type="button" role="radio" data-accent="crimson" aria-checked="false"><span class="dot" style="--dot:#950000"></span>Crimson</button>
-          <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#d98a12"></span>Amber</button>
-          <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#12a08c"></span>Teal</button>
+        <p class="fine">Each theme fixes its own light or dark mode, shown on the swatch. Picking one overrides your system setting.</p>
+        <div class="swatches" id="swatches" role="radiogroup" aria-label="Theme">
+          <button class="swatch" type="button" role="radio" data-accent="azure" aria-checked="false"><span class="dot" style="--dot:#4f8cff; --dot-bg:#0f1117"></span><span class="sw-name">Azure</span><span class="mode dark">Dark</span></button>
+          <button class="swatch" type="button" role="radio" data-accent="crimson" aria-checked="false"><span class="dot" style="--dot:#ff5f5f; --dot-bg:#150a0b"></span><span class="sw-name">Crimson</span><span class="mode dark">Dark</span></button>
+          <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#a86f08; --dot-bg:#fdf7ef"></span><span class="sw-name">Amber</span><span class="mode light">Light</span></button>
+          <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#0d7a6b; --dot-bg:#f2faf8"></span><span class="sw-name">Teal</span><span class="mode light">Light</span></button>
         </div>
         <hr>
         <p class="fine" id="themeNote"></p>

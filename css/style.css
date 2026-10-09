@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0f1117;
   --panel: #171a23;
   --panel-2: #1e2230;
@@ -25,14 +26,23 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Accent presets. Orthogonal to light/dark: the base palette still comes
- * from prefers-color-scheme, the accent layer only recolours chrome --
- * selection, focus, buttons, links -- never the semantic good/bad/warn.
- * #950000 is too dark to use directly on the dark palette (~2:1), so the
- * dark variant is the same hue lifted until it clears 3:1 as a border and
- * 4.5:1 under white button text.
+ * Themes. Each one is a complete palette, not an accent layer: the whole
+ * surface ladder (grounds, panels, rules, text) is tinted around the theme
+ * hue, with the brand colour used as the mid-tone anchor -- lightened for
+ * text and accents, darkened for grounds, so contrast holds.
+ *
+ * Azure is the original default dark palette and is left exactly as :root
+ * declares it. #950000 itself is only ~2:1 on a dark ground, so the dark
+ * crimson lifts the same hue until it clears 3:1 as a rule and 4.5:1 under
+ * white button text.
+ *
+ * Digit colours keep two independent signals in every palette: givens are
+ * near-neutral, user digits are warm-and-light, and wrong digits are vivid
+ * plus a background wash -- so "wrong" is never carried by hue alone, which
+ * matters most in the red theme.
  * ------------------------------------------------------------------ */
 :root[data-accent="azure"] {
+  color-scheme: dark;
   --accent: #4f8cff;
   --accent-2: #6ea0ff;
   --accent-soft: rgba(79, 140, 255, .24);
@@ -41,31 +51,71 @@
 }
 
 :root[data-accent="crimson"] {
-  --accent: #cc1f1f;
-  --accent-2: #ff8f8f;
-  --accent-soft: rgba(204, 31, 31, .26);
-  --accent-faint: rgba(204, 31, 31, .10);
-  --user: #ff9a9a;
+  color-scheme: dark;
+  --bg: hsl(357, 48%, 4.5%);
+  --panel: hsl(357, 44%, 7.5%);
+  --panel-2: hsl(357, 41%, 11.5%);
+  --line: hsl(357, 36%, 19%);
+  --line-strong: hsl(357, 30%, 39%);
+  --text: hsl(357, 45%, 95%);
+  --muted: hsl(357, 24%, 73%);
+  --accent: hsl(357, 82%, 53%);
+  --accent-2: hsl(357, 100%, 79%);
+  --accent-soft: hsla(357, 92%, 56%, .30);
+  --accent-faint: hsla(357, 92%, 56%, .12);
+  --given: hsl(357, 35%, 94%);
+  --user: hsl(28, 100%, 82%);
+  --note: hsl(357, 22%, 62%);
+  --bad: hsl(358, 100%, 66%);
 }
 
 :root[data-accent="amber"] {
-  --accent: #d98a12;
-  --accent-2: #ffc061;
-  --accent-soft: rgba(217, 138, 18, .24);
-  --accent-faint: rgba(217, 138, 18, .09);
-  --user: #ffcb80;
+  /* A light theme: amber on warm paper. Mode is fixed by the theme, not by the
+     system preference -- the swatch says so. */
+  color-scheme: light;
+  --bg: hsl(36, 45%, 97%);
+  --panel: hsl(36, 62%, 99%);
+  --panel-2: hsl(36, 58%, 94%);
+  --line: hsl(36, 42%, 87%);
+  --line-strong: hsl(36, 26%, 58%);
+  --text: hsl(32, 45%, 12%);
+  --muted: hsl(34, 22%, 40%);
+  --accent: hsl(32, 90%, 33%);
+  --accent-2: hsl(30, 88%, 27%);
+  --accent-soft: hsla(34, 90%, 40%, .18);
+  --accent-faint: hsla(34, 90%, 40%, .07);
+  --given: hsl(32, 30%, 12%);
+  --user: hsl(28, 85%, 33%);
+  --note: hsl(34, 18%, 46%);
+  --bad: hsl(8, 80%, 44%);
 }
 
 :root[data-accent="teal"] {
-  --accent: #12a08c;
-  --accent-2: #4fd6c0;
-  --accent-soft: rgba(18, 160, 140, .24);
-  --accent-faint: rgba(18, 160, 140, .09);
-  --user: #7fe3d1;
+  /* A light theme: teal on cool paper. */
+  color-scheme: light;
+  --bg: hsl(174, 40%, 97%);
+  --panel: hsl(174, 58%, 99%);
+  --panel-2: hsl(174, 48%, 94%);
+  --line: hsl(174, 36%, 86%);
+  --line-strong: hsl(174, 24%, 56%);
+  --text: hsl(180, 35%, 11%);
+  --muted: hsl(177, 16%, 38%);
+  --accent: hsl(176, 82%, 26%);
+  --accent-2: hsl(178, 76%, 21%);
+  --accent-soft: hsla(176, 70%, 35%, .18);
+  --accent-faint: hsla(176, 70%, 35%, .07);
+  --given: hsl(180, 25%, 11%);
+  --user: hsl(182, 78%, 27%);
+  --note: hsl(177, 14%, 44%);
+  --bad: hsl(358, 78%, 42%);
 }
 
+/* Only for an un-themed first paint (storage blocked, or before the inline
+   script runs): follow the system preference with the neutral palette. Once a
+   theme is chosen the theme itself fixes the mode, so this stops applying. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-accent]) {
+    color-scheme: light;
     --bg: #f4f6fb;
     --panel: #ffffff;
     --panel-2: #f0f3fa;
@@ -75,38 +125,6 @@
     --muted: #5b6478;
     --user: #2f6fd0;
     --note: #7a8499;
-  }
-
-  /* Light-mode accent layer. Declared inside the same media query and after the
-     base block so it wins over it at equal specificity. Here #950000 is used
-     essentially as-is: on a light ground it is already ~8:1. */
-  :root[data-accent="azure"] {
-    --accent: #2f6fd0;
-    --accent-2: #2a63bb;
-    --accent-soft: rgba(47, 111, 208, .18);
-    --accent-faint: rgba(47, 111, 208, .07);
-    --user: #2f6fd0;
-  }
-  :root[data-accent="crimson"] {
-    --accent: #950000;
-    --accent-2: #a80a0a;
-    --accent-soft: rgba(149, 0, 0, .16);
-    --accent-faint: rgba(149, 0, 0, .06);
-    --user: #8c1010;
-  }
-  :root[data-accent="amber"] {
-    --accent: #9a6508;
-    --accent-2: #8a5b06;
-    --accent-soft: rgba(154, 101, 8, .18);
-    --accent-faint: rgba(154, 101, 8, .07);
-    --user: #7d5406;
-  }
-  :root[data-accent="teal"] {
-    --accent: #0a7263;
-    --accent-2: #086054;
-    --accent-soft: rgba(10, 114, 99, .18);
-    --accent-faint: rgba(10, 114, 99, .07);
-    --user: #0a6154;
   }
 }
 
@@ -279,7 +297,9 @@ button.sm { padding: 3px 9px; font-size: 12px; }
 button.ghost { background: transparent; }
 button.wide { width: 100%; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-button.accent { background: var(--warn); border-color: var(--warn); color: #201500; font-weight: 600; }
+/* Follows the theme accent. This was hardcoded to --warn (orange), so the Hint
+   button stayed orange on every theme. */
+button.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
 button.danger-ghost { background: transparent; border-color: var(--bad); color: var(--bad); }
@@ -488,7 +508,7 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
   background: var(--panel-2);
   color: var(--text);
   border-radius: 999px;
-  padding: 6px 13px 6px 8px;
+  padding: 6px 12px 6px 8px;
   cursor: pointer;
 }
 .swatch:hover { border-color: var(--accent); }
@@ -496,14 +516,37 @@ h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppe
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
+/* Two-tone chip: the theme's accent on its own ground, so the swatch previews
+   both the colour and whether the theme is light or dark. */
 .swatch .dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--dot);
-  border: 1px solid rgba(255, 255, 255, .28);
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--dot-bg);
+  border: 1px solid var(--line-strong);
   flex: 0 0 auto;
+  position: relative;
+  overflow: hidden;
 }
+.swatch .dot::after {
+  content: '';
+  position: absolute;
+  inset: 4px 4px auto 4px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--dot);
+}
+.swatch .mode {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.swatch .mode.dark { color: #8fa6c8; }
+.swatch .mode.light { color: #b0873a; }
 
 .data-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 /* The upload control is a <label> wrapping a hidden input, so it needs the same

@@ -813,6 +813,7 @@ function buildDifficultySelect() {
  */
 const THEME_KEY = 'sudoku.ui.theme';
 const ACCENTS = ['azure', 'crimson', 'amber', 'teal'];
+const THEME_MODE = { azure: 'dark', crimson: 'dark', amber: 'light', teal: 'light' };
 
 function currentAccent() {
   const a = document.documentElement.getAttribute('data-accent');
@@ -828,7 +829,7 @@ function applyAccent(name) {
   }
   const note = $('themeNote');
   if (note) {
-    note.textContent = `Accent "${name}" saved on this browser. Light or dark still follows your system setting.`;
+    note.textContent = `Theme "${name}" (${THEME_MODE[name]}) saved on this browser. This overrides your system light/dark setting; Azure and Crimson are dark, Amber and Teal are light.`;
   }
 }
 

@@ -212,10 +212,47 @@ await scenario('06-landscape', { width: 740, height: 380 }, 'dark', async (page)
   if (m.vScroll) problems.push(`short landscape overflows: ${m.scrollH} > ${m.winH}`);
 });
 
-await scenario('06-light', { width: 1280, height: 1000 }, 'light', async (page) => {
-  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  results.lightBg = bg;
-  if (bg === 'rgb(15, 17, 23)') problems.push('light scheme still rendering the dark palette');
+await scenario('06-theme-mode', { width: 1280, height: 1000 }, 'light', async (page) => {
+  // Themes fix their own light/dark mode. A dark theme must stay dark even when
+  // the OS asks for light, and a light theme must go light regardless.
+  const bgOf = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const azureBg = await bgOf();
+  results.themeMode = { systemLight: { azureBg } };
+  if (azureBg !== 'rgb(15, 17, 23)') {
+    problems.push(`azure should stay dark under a light system, got ${azureBg}`);
+  }
+
+  await openMenu(page);
+  await page.click('[data-tab="theme"]');
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/06-picker.png` });
+
+  await page.click('.swatch[data-accent="amber"]');
+  await page.waitForTimeout(250);
+  const amberBg = await bgOf();
+  results.themeMode.systemLight.amberBg = amberBg;
+  if (amberBg === azureBg) problems.push('amber did not switch to a light palette');
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/06-amber-light.png` });
+});
+
+await scenario('07-crimson-dark', { width: 1280, height: 1000 }, 'light', async (page) => {
+  // Crimson under a *light* system: must still be fully dark, and the whole
+  // surface ladder must be red-tinted, not just the accent.
+  await page.evaluate(() => {
+    document.documentElement.setAttribute('data-accent', 'crimson');
+  });
+  await page.waitForTimeout(250);
+  const pal = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const g = (v) => cs.getPropertyValue(v).trim();
+    return { bg: g('--bg'), panel: g('--panel'), line: g('--line'), text: g('--text'), accent: g('--accent') };
+  });
+  results.crimsonPalette = pal;
+  if (pal.bg === 'rgb(15, 17, 23)') problems.push('crimson did not recolour the ground');
+  await page.screenshot({ path: `${OUT}/07-crimson-dark.png` });
 });
 
 // Text actually rasterises? (this host ships zero fonts by default)
