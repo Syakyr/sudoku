@@ -1,7 +1,7 @@
 {
-  "packageId": "io.github.syakyr.twa",
+  "packageId": "com.syakyr.sudoku.twa",
   "host": "syakyr.github.io",
-  "name": "Sudoku \u2014 seeded generator & puzzle library",
+  "name": "Sudoku — seeded generator & puzzle library",
   "launcherName": "Sudoku",
   "display": "standalone",
   "themeColor": "#0F1117",
@@ -17,8 +17,8 @@
   "maskableIconUrl": "https://syakyr.github.io/sudoku/icons/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "/data/android/android.keystore",
-    "alias": "android"
+    "path": "/keys/sudoku-twa.keystore",
+    "alias": "sudoku-twa"
   },
   "appVersionName": "1",
   "appVersionCode": 1,
@@ -35,7 +35,7 @@
   "isMetaQuest": false,
   "fullScopeUrl": "https://syakyr.github.io/sudoku/",
   "minSdkVersion": 24,
-  "orientation": "natural",
+  "orientation": "any",
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],

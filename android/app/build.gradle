@@ -21,7 +21,7 @@ plugins {
 }
 
 def twaManifest = [
-    applicationId: 'io.github.syakyr.twa',
+    applicationId: 'com.syakyr.sudoku.twa',
     hostName: 'syakyr.github.io', // The domain being opened in the TWA.
     launchUrl: '/sudoku/', // The start path for the TWA. Must be relative to the domain.
     name: 'Sudoku — seeded generator & puzzle library', // The application name.
@@ -47,14 +47,14 @@ def twaManifest = [
     // 'customtabs' and 'webview'.
     fallbackType: 'customtabs',
     enableSiteSettingsShortcut: 'true',
-    orientation: 'natural',
+    orientation: 'any',
 ]
 
 android {
     compileSdkVersion 36
-    namespace "io.github.syakyr.twa"
+    namespace "com.syakyr.sudoku.twa"
     defaultConfig {
-        applicationId "io.github.syakyr.twa"
+        applicationId "com.syakyr.sudoku.twa"
         minSdkVersion 24
         targetSdkVersion 36
         versionCode 1

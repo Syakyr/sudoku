@@ -1,4 +1,4 @@
-package io.github.syakyr.twa;
+package com.syakyr.sudoku.twa;
 
 
 

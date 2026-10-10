@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.syakyr.twa;
+package com.syakyr.sudoku.twa;
 
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
