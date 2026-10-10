@@ -4,7 +4,7 @@
 [![release](https://img.shields.io/github/v/release/Syakyr/sudoku)](https://github.com/Syakyr/sudoku/releases)
 [![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
 [![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
-[![Android](https://img.shields.io/badge/minSdk-24%20(Android%207.0)-blue)](docs/DEVELOPMENT.md#the-android-apk)
+[![Android](https://img.shields.io/badge/minSdk-24%20%28Android%207.0%29-blue)](docs/DEVELOPMENT.md#the-android-apk)
 [![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](#layout)
 [![License](https://img.shields.io/github/license/Syakyr/sudoku)](LICENSE)
 
