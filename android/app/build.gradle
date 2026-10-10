@@ -55,7 +55,7 @@ android {
     namespace "io.github.syakyr.twa"
     defaultConfig {
         applicationId "io.github.syakyr.twa"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 36
         versionCode 1
         versionName "1"
@@ -208,6 +208,6 @@ repositories {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     
-        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
+        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
     
 }

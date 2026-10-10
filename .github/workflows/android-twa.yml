@@ -275,6 +275,16 @@ jobs:
           # validation is a separate `bubblewrap validate` command. It was a
           # no-op dressed up as a workaround.
           #
+          # minSdkVersion comes from twa-manifest.json (template_project/app/
+          # build.gradle: `minSdkVersion <%= minSdkVersion %>`). It was 21 --
+          # bubblewrap's own DEFAULT_MIN_SDK_VERSION -- but 1.27.0 pins
+          # androidbrowserhelper 2.7.4 (core/lib/features/FeatureManager.js),
+          # which declares minSdk 24, so the manifest merger refused:
+          #   uses-sdk:minSdkVersion 21 cannot be smaller than version 24
+          #     declared in library [com.google.androidbrowserhelper:2.7.4]
+          # Raised to 24 (Android 7.0, 2016). This is the library's floor, not a
+          # choice -- do not lower it without also pinning an older helper.
+          #
           # --signingKeyAlias is pinned because the generated twa-manifest.json
           # carries alias "android" (bubblewrap's own default from the key it
           # minted during init), but the key stored in TWA_KEYSTORE_BASE64 was

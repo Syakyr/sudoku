@@ -34,7 +34,7 @@
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://syakyr.github.io/sudoku/",
-  "minSdkVersion": 21,
+  "minSdkVersion": 24,
   "orientation": "natural",
   "fingerprints": [],
   "additionalTrustedOrigins": [],
