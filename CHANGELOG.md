@@ -9,6 +9,43 @@ versions are the tags themselves.
 
 ---
 
+## [v0.3.1] — Material You actually sticks
+
+Three bugs reported from a real device, all real, all in the persistence and
+refresh path rather than the color derivation.
+
+### Fixed
+- **Leaving the app and coming back reverted to azure instead of staying on
+  Dynamic.** `applyAccent('dynamic')` ran before the async seed arrived, fell
+  back to azure, and **wrote azure to storage** — destroying the preference
+  before `initDynamicTheme()` ever got a chance to honour it. The chosen theme
+  is now captured once at load as `storedTheme`, and a seedless `dynamic`
+  paints a placeholder without persisting anything.
+- **Boot keyed off the DOM attribute instead of storage.** `applyAccent(currentAccent())`
+  read `data-accent`, which relies on the inline `<head>` script having mirrored
+  storage onto it. Now boots from `storedTheme` directly — storage is what the
+  user chose.
+- **Changing the device color scheme did nothing.** The seed was read exactly
+  once at boot. Now re-read on `visibilitychange` → visible and on `pageshow`,
+  so a wallpaper or scheme change made while backgrounded reaches the UI.
+- **A stored `dynamic` with no matching CSS rule rendered on bare defaults.**
+  Added a `:root[data-accent="dynamic"]` placeholder so there is no unstyled
+  flash between choosing Dynamic and the seed arriving.
+
+### Notes
+The "looks like crimson" report is expected behaviour, not a bug: only the seed
+**hue** is taken, and a red-ish device hue run through the app's dark recipe
+produces a red theme. What was *not* expected was that it then reverted — that
+was the persistence bug above.
+
+Tests: 132 pass / 0 fail (+6). The new tests boot with storage pre-seeded to
+`dynamic` — the exact state that triggered the bug — and cover the preference
+surviving boot, the palette actually being applied, refresh picking up a changed
+seed, refresh being a no-op for non-dynamic themes, and a static theme not being
+hijacked back.
+
+---
+
 ## [v0.3.0] — Material You
 
 ### Added

@@ -51,6 +51,20 @@
   --user: #7fb3ff;
 }
 
+:root[data-accent="dynamic"] {
+  /* Placeholder shown for the moment between "user chose Dynamic" and "the
+     native seed arrived". Without a rule here the attribute is set but nothing
+     matches it, so the page renders on bare :root defaults with no accent
+     vars -- a visible flash. The real palette is applied inline by
+     js/material-you.js and overrides everything in this block. */
+  color-scheme: dark;
+  --accent: #7f9fd8;
+  --accent-2: #a8c4ff;
+  --accent-soft: rgba(127, 159, 216, .24);
+  --accent-faint: rgba(127, 159, 216, .09);
+  --user: #a8c4ff;
+}
+
 :root[data-accent="crimson"] {
   color-scheme: dark;
   --bg: hsl(357, 48%, 4.5%);

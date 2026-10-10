@@ -53,7 +53,13 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flushStorage);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushStorage();
+    // Coming back to the foreground is when a wallpaper or system-scheme change
+    // would have happened. Without this the seed is only ever read once at boot,
+    // so the app would keep the old palette until a full restart.
+    else if (document.visibilityState === 'visible') refreshDynamicTheme().catch(() => {});
   });
+  // Android fires pageshow on resume from the recents screen too.
+  window.addEventListener('pageshow', () => refreshDynamicTheme().catch(() => {}));
 }
 
 const state = {
@@ -996,10 +1002,19 @@ function systemPrefersDark() {
   }
 }
 
-function currentAccent() {
-  const a = document.documentElement.getAttribute('data-accent');
-  return ACCENTS.includes(a) ? a : 'azure';
-}
+// The theme the user actually chose, captured ONCE at load before anything can
+// clobber it. This matters: applyAccent('dynamic') used to run before the async
+// seed arrived, fall back to azure, and WRITE azure to storage -- erasing the
+// preference before initDynamicTheme() ever got a chance to honour it. That is
+// why leaving the app and coming back reverted to azure.
+let storedTheme = (() => {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    return ACCENTS.includes(v) ? v : 'azure';
+  } catch {
+    return 'azure';
+  }
+})();
 
 function syncSwatchStates(name) {
   for (const s of document.querySelectorAll('.swatch')) {
@@ -1009,27 +1024,31 @@ function syncSwatchStates(name) {
 
 function applyAccent(name) {
   if (name === 'dynamic') {
-    // Guard: never let a stored 'dynamic' survive into an environment where it
-    // is unavailable (app copied to an older phone, plugin removed). Fall back
-    // rather than render a theme with no colours behind it.
     if (!dynamicSeed) {
-      name = 'azure';
-    } else {
-      const mode = systemPrefersDark() ? 'dark' : 'light';
-      clearDynamicPalette();
-      const applied = applyDynamicPalette(dynamicSeed, mode);
-      if (!applied) {
-        name = 'azure';
-      } else {
-        try { localStorage.setItem(THEME_KEY, 'dynamic'); } catch (e) { /* storage blocked */ }
-        syncSwatchStates('dynamic');
-        const note = $('themeNote');
-        if (note) {
-          note.textContent = `Material You: derived from your wallpaper (${dynamicSeed}, ${mode}). Follows the system light/dark setting.`;
-        }
-        return;
-      }
+      // Seed not here yet (or never coming). Paint the CSS placeholder so the
+      // page is never left without theme vars, keep the swatch marked, and
+      // CRUCIALLY do not persist azure -- that is what destroyed the choice.
+      document.documentElement.setAttribute('data-accent', 'dynamic');
+      syncSwatchStates('dynamic');
+      const pending = $('themeNote');
+      if (pending) pending.textContent = 'Material You: reading your wallpaper colors…';
+      return;
     }
+    const mode = systemPrefersDark() ? 'dark' : 'light';
+    clearDynamicPalette();
+    const applied = applyDynamicPalette(dynamicSeed, mode);
+    if (applied) {
+      storedTheme = 'dynamic';
+      try { localStorage.setItem(THEME_KEY, 'dynamic'); } catch (e) { /* storage blocked */ }
+      syncSwatchStates('dynamic');
+      const note = $('themeNote');
+      if (note) {
+        note.textContent = `Material You: derived from your wallpaper (${dynamicSeed}, ${mode}). Follows the system light/dark setting.`;
+      }
+      return;
+    }
+    // Palette could not be built from the seed -- genuinely fall back, and say so.
+    name = 'azure';
   }
 
   if (!ACCENTS.includes(name)) name = 'azure';
@@ -1037,12 +1056,31 @@ function applyAccent(name) {
   clearDynamicPalette();
   document.documentElement.removeAttribute('style');
   document.documentElement.setAttribute('data-accent', name);
+  storedTheme = name;
   try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* storage blocked */ }
   syncSwatchStates(name);
   const note = $('themeNote');
   if (note) {
     note.textContent = `Theme "${name}" saved. Picking a theme overrides your system light/dark setting.`;
   }
+}
+
+/**
+ * Re-read the seed and repaint. Called when the app comes back to the
+ * foreground, because the seed is otherwise only read once at boot -- so a
+ * wallpaper or system-scheme change made while the app was backgrounded would
+ * never reach the UI.
+ *
+ * Repaints even when the seed is unchanged: the light/dark mode may have moved,
+ * and applyAccent re-reads it either way.
+ */
+async function refreshDynamicTheme() {
+  if (storedTheme !== 'dynamic') return null;
+  const res = await queryDynamicTheme();
+  if (!res.supported) return res;
+  dynamicSeed = res.seed;
+  applyAccent('dynamic');
+  return res;
 }
 
 /**
@@ -1054,13 +1092,17 @@ async function initDynamicTheme() {
   const swatch = document.querySelector('.swatch[data-accent="dynamic"]');
   if (!res.supported) {
     if (swatch) swatch.remove();
-    // A stored 'dynamic' with no seed behind it must not strand the UI.
-    if (currentAccent() === 'dynamic') applyAccent('azure');
+    // A stored 'dynamic' with no seed behind it must not strand the UI. Keyed
+    // off storedTheme, not the DOM attribute, so a placeholder paint cannot
+    // trick this into thinking the user chose something else.
+    if (storedTheme === 'dynamic') applyAccent('azure');
     return res;
   }
   dynamicSeed = res.seed;
   if (swatch) swatch.hidden = false;
-  if (currentAccent() === 'dynamic') applyAccent('dynamic');
+  // Keyed off storedTheme: the DOM attribute may currently be showing the
+  // placeholder, and at this point in boot applyAccent() has not run yet.
+  if (storedTheme === 'dynamic') applyAccent('dynamic');
   return res;
 }
 
@@ -1111,7 +1153,11 @@ function wireControls() {
     const s = e.target.closest('.swatch');
     if (s) applyAccent(s.dataset.accent);
   });
-  applyAccent(currentAccent());
+  // Boot from the captured preference, NOT from the DOM attribute. The inline
+  // script in <head> normally mirrors storage onto data-accent before first
+  // paint, but making app.js depend on that is fragile -- and it was the wrong
+  // source of truth anyway: storage is what the user chose.
+  applyAccent(storedTheme);
   // Async: asks the native layer for the wallpaper seed and reveals the
   // Dynamic swatch if there is one. Runs after the sync apply so a stored
   // 'dynamic' theme is not stranded if the plugin turns out to be missing.
@@ -1385,7 +1431,11 @@ globalThis.sudokuApp = {
   storageInfo,
   flushStorage,
   initDynamicTheme,
+  refreshDynamicTheme,
   applyAccent,
+  get storedTheme() {
+    return storedTheme;
+  },
   get dynamicSeed() {
     return dynamicSeed;
   }

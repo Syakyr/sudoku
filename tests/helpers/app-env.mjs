@@ -27,7 +27,7 @@ const define = (name, value) =>
  * Returns { dom, registerCalls } where registerCalls records every
  * serviceWorker.register() spec.
  */
-export async function bootAppEnv({ url = 'https://localhost/', nativeBridge = undefined } = {}) {
+export async function bootAppEnv({ url = 'https://localhost/', nativeBridge = undefined, seedStorage = null } = {}) {
   const dom = new JSDOM(html, { url, pretendToBeVisual: true });
 
   define('window', dom.window);
@@ -58,6 +58,15 @@ export async function bootAppEnv({ url = 'https://localhost/', nativeBridge = un
   };
   for (const nav of [globalThis.navigator, dom.window.navigator]) {
     Object.defineProperty(nav, 'serviceWorker', { value: stub, configurable: true });
+  }
+
+  // Seeded BEFORE the import so the app's own boot-time read sees it -- that
+  // ordering is the whole point of the dynamic-theme persistence tests.
+  if (seedStorage) {
+    for (const [k, v] of Object.entries(seedStorage)) {
+      dom.window.localStorage.setItem(k, v);
+      globalThis.localStorage.setItem(k, v);
+    }
   }
 
   if (nativeBridge !== undefined) define('Capacitor', nativeBridge);

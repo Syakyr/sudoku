@@ -15,7 +15,7 @@
    SKIP_WAITING and the worker takes over. Skipping straight through would swap
    the shell under a live game without anyone agreeing to it. */
 
-const CACHE = 'sudoku-shell-v9';
+const CACHE = 'sudoku-shell-v10';
 
 const SHELL = [
   './',
