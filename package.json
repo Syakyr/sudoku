@@ -11,7 +11,7 @@
     "android:sync": "npm run build:dist && npx cap sync android"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.3",

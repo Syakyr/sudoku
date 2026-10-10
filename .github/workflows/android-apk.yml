@@ -87,7 +87,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Capacitor CLI 8.x hard-requires Node >=22 -- it aborts with
+          # "The Capacitor CLI requires NodeJS >=22.0.0" before doing anything.
+          # (Measured on run 38058496952 after pinning 20, which worked fine
+          # locally because this host runs Node 26.) ci.yml already uses 22.
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
