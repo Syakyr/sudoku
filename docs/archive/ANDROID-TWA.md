@@ -1,3 +1,23 @@
+# SUPERSEDED — do not follow this document
+
+**The TWA approach was dropped on 2026-10-10 in favour of a bundled Capacitor
+APK.** Kept for the record because it documents real, measured Bubblewrap
+behaviour that is expensive to re-derive.
+
+Why it was replaced: a TWA contains none of the app. It is a chrome-less
+Chrome window pointed at `https://syakyr.github.io/sudoku/`, so GitHub Pages
+being reachable is a hard runtime dependency for the first load, and the tag
+never actually froze anything — the code the wrapper showed was whatever was
+deployed, not the code at the tag. The Capacitor build packs the app into the
+APK, so a tag is a real snapshot and the app works with no network at all.
+Rolling updates are now the PWA's job, installed from the browser.
+
+What still carries over to `android-apk.yml`: the runner SDK facts, the
+`setup-android@v3` breakage, the pinned signing key alias, and the
+"never let CI mint a fresh key" rule.
+
+---
+
 # Android TWA (the APK)
 
 The APK is a **Trusted Web Activity**: a thin Android shell that launches the

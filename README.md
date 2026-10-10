@@ -1,11 +1,34 @@
 # Sudoku — seeded generator, uniqueness-checked, local-first
 
+[![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
+
 A single-page Sudoku that generates puzzles **to a difficulty contract rather than
 a vibe**, refuses to hand you a puzzle you have already played (even in a rotated,
 relabelled disguise), and keeps the whole library in your browser with
 import/export so it can move between devices.
 
 No build step, no framework, no backend. Static files: `index.html`, `css/`, `js/`.
+
+---
+
+## Two ways to get it, and why they are different
+
+| | **PWA** (rolling) | **Android APK** (tagged) |
+|---|---|---|
+| Install | Browser → "Install app" at [syakyr.github.io/sudoku](https://syakyr.github.io/sudoku/) | [Releases](https://github.com/Syakyr/sudoku/releases) / Obtainium |
+| Contains | Nothing — loads the live site | The app itself, packed into the APK |
+| Updates | Automatic; in-app "Update available" bar | Only when a tag is cut |
+| Needs network | For the first load | Never |
+| Runtime | Chrome | Android System WebView via Capacitor |
+
+The badge above is the maintainer's reminder that these two drift apart: the web
+app moves on every push to `main`, the APK moves only on a tag. **Green** means
+HEAD is the shipped release; **red** means main has moved on and bundled users
+are behind.
+
+The service worker is deliberately disabled inside the APK — it would cache
+files that are already local and cannot change. That is enforced by tests
+(`tests/native-sw-suppressed.test.js`), not by a comment.
 
 ---
 

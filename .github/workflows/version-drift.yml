@@ -1,0 +1,87 @@
+name: Version drift badge
+
+# Maintainer-facing shield for the one thing this repo's model makes easy to
+# lose sight of: the deployed web app moves on every push to main, but the APK
+# only moves when a tag is cut. If main drifts far from the latest tag, the
+# bundled app users have installed is that many commits stale.
+#
+# Green  -> HEAD is the latest release
+# Yellow -> a few commits ahead of the latest tag
+# Red    -> main has drifted; consider cutting a release
+#
+# Writes a shields.io endpoint JSON back into the repo. The commit is marked
+# [skip ci] and this workflow ignores its own output path, so it cannot loop.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/badges/**'
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tags are needed to compute drift; the default shallow clone has none.
+          fetch-depth: 0
+
+      - name: Compute drift since the latest release tag
+        run: |
+          LATEST="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+
+          if [ -z "$LATEST" ]; then
+            AHEAD=0
+            MSG='no release yet'
+            COLOR='red'
+          else
+            AHEAD="$(git rev-list --count "${LATEST}..HEAD")"
+            if [ "$AHEAD" -eq 0 ]; then
+              MSG="$LATEST · shipped"
+              COLOR='green'
+            elif [ "$AHEAD" -le 4 ]; then
+              MSG="$LATEST · +$AHEAD commits"
+              COLOR='yellow'
+            else
+              MSG="$LATEST · +$AHEAD commits"
+              COLOR='red'
+            fi
+          fi
+
+          echo "latest tag: ${LATEST:-none}, commits since: $AHEAD"
+
+          mkdir -p .github/badges
+          node -e '
+            const fs = require("fs");
+            const [message, color] = process.argv.slice(1);
+            fs.writeFileSync(
+              ".github/badges/version-drift.json",
+              JSON.stringify({
+                schemaVersion: 1,
+                label: "bundled APK",
+                message,
+                color,
+              }) + "\n",
+            );
+          ' "$MSG" "$COLOR"
+
+          cat .github/badges/version-drift.json
+
+      - name: Commit the badge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- .github/badges/version-drift.json; then
+            echo "Badge unchanged."
+            exit 0
+          fi
+          git add .github/badges/version-drift.json
+          git commit -m "chore: update version drift badge [skip ci]"
+          git push

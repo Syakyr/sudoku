@@ -1067,6 +1067,20 @@ init();
  * ------------------------------------------------------------------ */
 let updatePollTimer = null;
 
+/*
+ * Running inside the packaged (Capacitor) app?
+ *
+ * The native bridge sets `window.Capacitor` and puts `isNativePlatform: () =>
+ * true` on it (verified in @capacitor/android's native-bridge.js: `cap.isNativePlatform =
+ * isNativePlatform`); a plain browser has no such global. Read off `globalThis`
+ * rather than importing @capacitor/core so the PWA that ships from this repo
+ * stays free of any native dependency -- the same js/app.js is served to both.
+ */
+function isNativeApp() {
+  const cap = globalThis.Capacitor;
+  return Boolean(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+}
+
 function stopUpdates() {
   if (updatePollTimer) {
     clearInterval(updatePollTimer);
@@ -1079,6 +1093,19 @@ function initUpdates(deps = {}) {
   const register = deps.register || (() => sw.register('sw.js'));
   const reload = deps.reload || (() => location.reload());
   if (!sw) return stopUpdates;
+
+  // Clear any timer left by a previous run before this one starts its own.
+  //
+  // `load` can fire more than once (a real reload racing a listener attach; a
+  // test dispatching it manually), and without this the second run overwrote the
+  // module-level updatePollTimer with a fresh interval while the old one kept
+  // running -- an orphan 60s timer that stopUpdates() could not reach, because
+  // it only knows about the latest. That is what made the PWA test process
+  // hang: the assertion passed, then the file never exited.
+  //
+  // Clearing rather than early-returning, because the UI tests deliberately
+  // re-init with different fakes; blocking re-entry would break those.
+  stopUpdates();
 
   let offered = false;
   let requested = false;
@@ -1139,9 +1166,21 @@ function initUpdates(deps = {}) {
   return stopUpdates;
 }
 
-// Installable as a standalone app, and fully usable offline once cached.
-// Relative path so the scope lands on /sudoku/ under a project page.
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
+// PWA only. The service worker is the rolling-update mechanism for the deployed
+// site: it precaches the shell and lets a new deploy be offered in-app. In the
+// packaged app the assets are already local and frozen into the APK, so a worker
+// would only add a cache over files that cannot change underneath it.
+//
+// The platform check is required, not cosmetic: Capacitor serves from a local
+// `https://localhost` (androidScheme defaults to https), so the protocol test
+// alone would happily let the worker register inside the APK. Guard on the
+// platform, not the scheme.
+//
+// This also keeps the in-app update bar out of the packaged app: `#updateBar`
+// starts `hidden` and is only ever revealed by offer(), which only runs from a
+// registered worker. No worker, no bar -- so a button that could never fire is
+// not shipped.
+if (!isNativeApp() && 'serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => initUpdates());
 }
 
@@ -1157,5 +1196,6 @@ globalThis.sudokuApp = {
   PEERS,
   syncModeUi,
   initUpdates,
-  stopUpdates
+  stopUpdates,
+  isNativeApp
 };

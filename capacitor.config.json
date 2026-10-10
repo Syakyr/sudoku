@@ -1,0 +1,8 @@
+{
+  "appId": "com.syakyr.sudoku",
+  "appName": "Sudoku",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

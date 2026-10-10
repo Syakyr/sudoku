@@ -6,12 +6,19 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "build:dist": "node tools/build-dist.mjs",
+    "android:sync": "npm run build:dist && npx cap sync android"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
     "jsdom": "^27.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.3"
   }
 }

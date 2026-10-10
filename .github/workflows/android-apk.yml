@@ -1,0 +1,238 @@
+name: Android APK release
+
+# Builds the bundled (offline, self-contained) Capacitor APK and publishes it as
+# a GitHub Release asset, which is what Obtainium tracks.
+#
+# This replaces the Bubblewrap TWA workflow. The APK contains the app itself --
+# copied into android/app/src/main/assets/public by `cap sync` -- so it does
+# NOT depend on GitHub Pages at runtime. Rolling updates are the PWA's job;
+# a tag here is a frozen snapshot of the codebase at that tag.
+#
+# PREREQUISITES -- the job fails loudly rather than silently producing a
+# throwaway build, because a rotating signing key makes every later release
+# uninstallable over the previous one:
+#
+#   secrets.TWA_KEYSTORE_BASE64    the signing keystore, base64
+#                                (tools/make-twa-keystore.sh)
+#   secrets.TWA_KEYSTORE_PASSWORD  store password
+#   secrets.TWA_KEY_PASSWORD       key password
+#   key alias: sudoku-twa          pinned below; the keystore has no other
+#
+# The keystore is carried over unchanged from the TWA build. The package id
+# changed (io.github.syakyr.twa -> com.syakyr.sudoku) but the signing
+# certificate did not, so the published fingerprint still describes this key.
+#
+# android/ is committed. `cap add android` is NOT run in CI -- the native
+# project is part of the repo, and only `cap sync` (which copies web assets
+# and updates the plugin registry) runs here.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g. v0.2.0)'
+        required: true
+        type: string
+
+# Needed to create the release and upload assets.
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # GitHub-hosted ubuntu runners ship the Android SDK pre-installed, so no
+      # setup action is used. android-actions/setup-android@v3 was tried during
+      # the TWA work and fails on today's SDK repo: it still tries to install
+      # the legacy `tools` package, which Google removed --
+      #   Warning: Failed to find package 'tools'
+      #   Error: ... sdkmanager failed with exit code 1
+      - name: Point at the pre-installed Android SDK
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [ ! -d "$SDK" ]; then
+            echo "::error::No Android SDK at $SDK"
+            ls -la /usr/local/lib/android 2>/dev/null || echo "  (nothing under /usr/local/lib/android)"
+            exit 1
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "build-tools: $(ls "$SDK/build-tools" 2>/dev/null | tr '\n' ' ')"
+          echo "platforms:   $(ls "$SDK/platforms" 2>/dev/null | tr '\n' ' ')"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The bundle is an explicit allowlist (see tools/build-dist.mjs), not the
+      # repo root. If the allowlist is wrong the script fails the build rather
+      # than shipping node_modules or the native project inside the APK.
+      - name: Assemble the app bundle
+        run: npm run build:dist
+
+      - name: Check the native project is committed
+        run: |
+          if [ ! -f android/build.gradle ] || [ ! -f android/app/build.gradle ]; then
+            echo "::error::android/ is missing or incomplete. Run \`npx cap add android\` once"
+            echo "  and commit the generated native project; CI only runs \`cap sync\`."
+            exit 1
+          fi
+
+      # Copies dist/ into android/app/src/main/assets/public and refreshes the
+      # Capacitor plugin registry. This is the step that actually puts the app
+      # inside the APK.
+      - name: Sync the web bundle into the native project
+        run: npx cap sync android
+
+      - name: Prove the app is inside the native project
+        # Cheap, decisive check that the bundling happened. If this ever prints
+        # zero, the APK would be an empty shell and we want to know before it
+        # is signed and published.
+        run: |
+          PUB="android/app/src/main/assets/public"
+          echo "bundled files: $(find "$PUB" -type f | wc -l)"
+          test -f "$PUB/index.html"
+          test -f "$PUB/js/app.js"
+          test -f "$PUB/css/style.css"
+          if find "$PUB" -name 'sw.js' | grep -q .; then
+            echo "::error::sw.js leaked into the bundle. The packaged app must not"
+            echo "  ship a service worker -- it caches files that are already local."
+            exit 1
+          fi
+          grep -q 'com.syakyr.sudoku' android/app/build.gradle \
+            || { echo "::error::applicationId is not com.syakyr.sudoku"; exit 1; }
+
+      # versionCode must INCREASE across releases or Android refuses to update
+      # an existing install in place (and Obtainium stops offering the app).
+      # Derived from the tag so it is monotonic for as long as the tags are:
+      #   major*1e6 + minor*1e3 + patch
+      # NB: the pre-release suffix is ignored, so `v1.0.0-rc` and `v1.0.0`
+      # map to the SAME versionCode. Do not ship both.
+      - name: Stamp the app version from the tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH -- cannot derive a monotonic versionCode."
+            exit 1
+          fi
+          CODE=$(printf '%s' "${TAG#v}" | awk -F'[.-]' '{printf "%d%03d%03d", $1, $2, $3}')
+          echo "tag=$TAG -> versionCode=$CODE versionName=$TAG"
+          node -e '
+            const fs = require("fs");
+            const file = "android/app/build.gradle";
+            let src = fs.readFileSync(file, "utf8");
+            const before = src;
+            src = src.replace(/versionCode\s+\d+/, `versionCode ${Number(process.argv[1])}`);
+            src = src.replace(/versionName\s+"[^"]*"/, `versionName "${process.argv[2]}"`);
+            if (src === before) {
+              throw new Error("Could not find versionCode / versionName in " + file);
+            }
+            fs.writeFileSync(file, src);
+          ' "$CODE" "$TAG"
+          grep -nE 'versionCode|versionName' android/app/build.gradle
+
+      - name: Build the release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Align and sign
+        env:
+          KEYSTORE_B64: ${{ secrets.TWA_KEYSTORE_BASE64 }}
+          STOREPASS: ${{ secrets.TWA_KEYSTORE_PASSWORD }}
+          KEYPASS: ${{ secrets.TWA_KEY_PASSWORD }}
+        run: |
+          if [ -z "${KEYSTORE_B64:-}" ]; then
+            echo "::error::TWA_KEYSTORE_BASE64 is not set. Generate a keystore with"
+            echo "  tools/make-twa-keystore.sh and store it, with its passwords, as repo secrets."
+            echo "  Do NOT let CI generate a fresh key per build: Android refuses to update an"
+            echo "  app when the signing certificate changes, so every release would be a"
+            echo "  clean-install-only app and Obtainium updates would break."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/twa.keystore"
+          test -s "$RUNNER_TEMP/twa.keystore"
+
+          # Pick an apksigner/zipalign from the runner SDK. Prefer the newest
+          # available rather than hard-coding a version that a future image may
+          # not carry.
+          BT="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          echo "using build-tools $BT"
+          APKSIGNER="$ANDROID_HOME/build-tools/$BT/apksigner"
+          ZIPALIGN="$ANDROID_HOME/build-tools/$BT/zipalign"
+
+          UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$UNSIGNED" || { echo "::error::unsigned APK not found at $UNSIGNED"; exit 1; }
+
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          "$APKSIGNER" sign \
+            --ks "$RUNNER_TEMP/twa.keystore" \
+            --ks-key-alias sudoku-twa \
+            --ks-pass env:STOREPASS \
+            --key-pass env:KEYPASS \
+            --out "$RUNNER_TEMP/signed.apk" \
+            "$RUNNER_TEMP/aligned.apk"
+          "$APKSIGNER" verify --print-certs "$RUNNER_TEMP/signed.apk"
+
+      - name: Record the signing certificate fingerprint
+        # Printed into the log rather than committed, since it is derived from a
+        # secret you control. Should match the fingerprint the TWA build printed.
+        env:
+          STOREPASS: ${{ secrets.TWA_KEYSTORE_PASSWORD }}
+        run: |
+          echo "=== SHA-256 certificate fingerprint ==="
+          keytool -list -rfc -keystore "$RUNNER_TEMP/twa.keystore" \
+            -storepass:env STOREPASS 2>/dev/null \
+            | openssl x509 -noout -fingerprint -sha256 | sed 's/^.*=//'
+          echo "====================================="
+
+      - name: Stage the assets
+        run: |
+          mkdir -p out
+          TAG="${{ steps.tag.outputs.tag }}"
+          cp "$RUNNER_TEMP/signed.apk" "out/sudoku-$TAG.apk"
+          ls -la out/
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/* --clobber
+          else
+            gh release create "$TAG" out/* \
+              --title "Sudoku $TAG (bundled Android APK)" \
+              --notes "Self-contained offline Android build of Sudoku. The app is packed into the APK; no network or GitHub Pages dependency at runtime. Rolling updates are available separately as the PWA at https://syakyr.github.io/sudoku/"
+          fi
+          echo
+          echo "Obtainium: add this repo and point it at the latest release APK asset"
+          gh release view "$TAG" --json assets --jq '.assets[].name'
