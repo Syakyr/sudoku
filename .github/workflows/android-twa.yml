@@ -127,9 +127,15 @@ jobs:
           # --skipPwaValidation: the quality-criteria check calls the live site
           # and fails on things this repo cannot fix (Lighthouse flakiness,
           # GitHub Pages headers). Run `bubblewrap validate` by hand if you want it.
+          # --signingKeyAlias is pinned because the generated twa-manifest.json
+          # carries alias "android" (bubblewrap's own default from the key it
+          # minted during init), but the key stored in TWA_KEYSTORE_BASE64 was
+          # created with alias "sudoku-twa". Without this the build looks for an
+          # alias that does not exist in the secret keystore and fails.
           bubblewrap build \
             --manifest=android \
             --signingKeyPath "$RUNNER_TEMP/twa.keystore" \
+            --signingKeyAlias sudoku-twa \
             --skipPwaValidation
 
       - name: Record the signing certificate fingerprint
