@@ -6,10 +6,10 @@
 
 **Seeded generator · uniqueness-checked · local-first**
 
-A single-page Sudoku that generates puzzles **to a difficulty contract rather than
-a vibe**, refuses to hand you a puzzle you have already played (even in a rotated,
-relabelled disguise), and keeps the whole library on your device with
-import/export so it can move between devices.
+A single-page Sudoku that generates puzzles **rated against a technique ladder
+rather than a clue count**, refuses to hand you a puzzle you have already played
+(even in a rotated, relabelled disguise), and keeps the whole library on your
+device with import/export so it can move between devices.
 
 No build step, no framework, no backend. Static files: `index.html`, `css/`, `js/`.
 
@@ -24,9 +24,13 @@ No build step, no framework, no backend. Static files: `index.html`, `css/`, `js
 </div>
 
 **In short:** difficulty = the hardest technique the cheapest logical solve needs,
-not the clue count. A board is only labelled tier T if it is solvable with T's
-ladder **and provably not solvable with the tier below it**. Full detail in
-[docs/DIFFICULTY.md](docs/DIFFICULTY.md).
+not the clue count. A board accepted for tier T must be solvable with T's ladder
+and not with the tier below it. That is a real guarantee about *accepted* boards —
+but the upper tiers are **searched for**, not synthesised, so a share of boards
+fall back to whatever the generator actually reached, and how well the labels match
+how the tiers *play* is still an open question. Full detail in
+[docs/DIFFICULTY.md](docs/DIFFICULTY.md); the open balancing work is tracked in
+[the difficulty-calibration issue](https://github.com/Syakyr/sudoku/issues/1).
 
 ---
 
