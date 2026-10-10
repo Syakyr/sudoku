@@ -20,9 +20,35 @@ import { randomSeedString } from './prng.js';
 import { parseGrid, gridToString, PEERS, rowOf, colOf } from './board.js';
 import { solveLogic, TECH_BY_KEY } from './solver.js';
 import { createStore, STATUS, encodeNotes, decodeNotes } from './store.js';
+import { openStorage } from './native-storage.js';
 import { summarize, suggestNextTier, describeRating, formatDuration, formatPct } from './metrics.js';
 
-const store = createStore();
+/*
+ * One async boundary, taken before the store exists, so that everything
+ * downstream keeps a synchronous storage API. index.html loads app.js as
+ * type="module", so top-level await is legal here.
+ *
+ * openStorage() resolves to native @capacitor/preferences when the plugin is
+ * present (eviction-proof), and to plain localStorage otherwise -- so the PWA
+ * path is byte-for-byte the old behaviour. It also migrates any existing
+ * localStorage document up to native on first launch, so an upgraded app does
+ * not start empty.
+ */
+const storageInfo = await openStorage();
+const store = createStore({ storage: storageInfo.backend });
+
+// Write-behind means a save can still be in flight when the app is backgrounded
+// or killed. The localStorage mirror is already durable synchronously, so this
+// flush is belt-and-braces for the native copy specifically.
+const flushStorage = () => {
+  storageInfo.flush().catch(() => {});
+};
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushStorage);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushStorage();
+  });
+}
 
 const state = {
   puzzle: null,
@@ -81,6 +107,8 @@ function updateStorageBadge() {
   if (store.inMemory) {
     badge.textContent = `⚠ Storage unavailable — this session only (${n} puzzle${n === 1 ? '' : 's'}). Export before closing the tab.`;
     badge.classList.add('gen-status', 'bad');
+  } else if (storageInfo.mode === 'native') {
+    badge.textContent = `${n} puzzle${n === 1 ? '' : 's'} saved on this device. Export to move them to another device.`;
   } else {
     badge.textContent = `${n} puzzle${n === 1 ? '' : 's'} saved in this browser under ${'sudoku.library.v1'}. Export to move them to another device.`;
   }
@@ -1245,5 +1273,7 @@ globalThis.sudokuApp = {
   initUpdates,
   stopUpdates,
   isNativeApp,
-  requestPersistentStorage
+  requestPersistentStorage,
+  storageInfo,
+  flushStorage
 };

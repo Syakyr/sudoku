@@ -19,6 +19,7 @@
     "jsdom": "^27.0.0"
   },
   "dependencies": {
-    "@capacitor/core": "^8.5.3"
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/preferences": "^7.0.4"
   }
 }
