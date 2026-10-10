@@ -6,10 +6,8 @@
 [![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
 [![Android](https://img.shields.io/badge/minSdk-24%20(Android%207.0)-blue)](docs/DEVELOPMENT.md#the-android-apk)
 [![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](#layout)
+[![License](https://img.shields.io/github/license/Syakyr/sudoku)](LICENSE)
 
-> **No license badge, deliberately** — there is no `LICENSE` file in this repo.
-> Default copyright applies. Add one before claiming anything.
->
 > "Zero deps" means the **web bundle**: every import in `dist/js/` is relative,
 > verified by grep. `package.json` does carry `@capacitor/*`, but those exist
 > only to build the native wrapper — nothing in the shipped web app imports
