@@ -111,27 +111,46 @@ uniqueness registry — and a completed copy wins over an unfinished one.
 ## Layout
 
 ```
-index.html            single pane: the board. Everything else is in the drawer.
-css/style.css         theme + viewport-fitting board sizing
-sw.js                 PWA shell cache (never shipped inside the APK)
-js/prng.js          seeded sfc32 PRNG + readable seed encoding
-js/board.js         grid model, peer/unit tables, candidate bitmasks
-js/solver.js        technique ladder, rating, solution counting (uniqueness)
-js/generator.js     fill + dig, tier contract, share tokens
-js/canon.js         symmetry canonicalisation (standard / full) + hashing
-js/store.js         library document, schema + migration, import/export
-js/native-storage.js  sync facade over native Preferences / localStorage
-js/version.js       the version shown in Settings (CI stamps it from the tag)
-js/metrics.js       all statistics, pure functions over records
-js/app.js           UI controller
-tools/build-dist.mjs  allowlist assembler for the bundled web app
-tools/pw-check.mjs    real-Chromium visual/responsive/console check
-tests/              node --test suite
-android/            Capacitor native project
+sudoku/
+├── index.html              the board — the only pane
+├── sw.js                   PWA shell cache (never shipped inside the APK)
+├── manifest.webmanifest    install metadata
+├── css/
+│   └── style.css           theme + viewport-fitting board sizing
+│
+├── js/
+│   ├── prng.js             seeded sfc32 PRNG + readable seed encoding
+│   ├── board.js            grid model, peer/unit tables, candidate bitmasks
+│   ├── solver.js           technique ladder, rating, solution counting
+│   ├── generator.js        fill + dig, tier contract, share tokens
+│   ├── canon.js            symmetry canonicalisation (standard / full) + hashing
+│   ├── store.js            library document, schema + migration, import/export
+│   ├── native-storage.js   sync facade over native Preferences / localStorage
+│   ├── metrics.js          statistics — pure functions over records
+│   ├── version.js          the version shown in Settings (CI stamps it)
+│   └── app.js              UI controller — the only file that touches the DOM
+│
+├── tools/
+│   ├── build-dist.mjs      allowlist assembler for the bundled web app
+│   ├── pw-check.mjs        real-Chromium visual / responsive / console check
+│   ├── make-og-image.mjs   one-off: social-share image
+│   └── make-twa-keystore.sh one-off: minted the signing key (TWA era)
+│
+├── tests/                  node --test suite
+├── android/                Capacitor native project
+└── docs/                   DIFFICULTY.md · DEVELOPMENT.md
 ```
 
-The engine and store are browser-agnostic and tested in node; only `app.js`
-touches the DOM.
+Three layers, and the boundaries are load-bearing:
+
+| | Files | Depends on |
+|---|---|---|
+| **Engine** | `prng` `board` `solver` `generator` `canon` | nothing — pure and browser-agnostic |
+| **Persistence** | `store` `native-storage` | a localStorage-shaped backend, injected |
+| **Presentation** | `app` `metrics` `version` | the DOM (`app.js` only) |
+
+Everything in the engine and persistence rows is tested in node with no browser
+present.
 
 **One pane.** The board is sized with
 `clamp(30px, min(10.5vw, (100dvh - chrome) / 9), 68px)` so it fills the
