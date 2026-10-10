@@ -8,9 +8,14 @@
 
    BECAUSE of that cache-first path, changing css/ or js/ without bumping CACHE
    means a returning visitor sees the previous build on their first load and
-   the new one only on the second. Bump CACHE with every shell change. */
+   the new one only on the second. Bump CACHE with every shell change.
 
-const CACHE = 'sudoku-shell-v2';
+   There is deliberately NO skipWaiting() here. A freshly installed worker parks
+   in `waiting` and the page offers the update; the user's tap sends
+   SKIP_WAITING and the worker takes over. Skipping straight through would swap
+   the shell under a live game without anyone agreeing to it. */
+
+const CACHE = 'sudoku-shell-v3';
 
 const SHELL = [
   './',
@@ -35,8 +40,12 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE)
       .then((c) => c.addAll(SHELL))
-      .then(() => self.skipWaiting())
+    // No skipWaiting(): stay `waiting` until the user asks for the update.
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

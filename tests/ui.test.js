@@ -184,7 +184,10 @@ test('wiping the library clears the list', () => {
 
 after(() => {
   // The running clock would otherwise hold the event loop open forever.
-  if (globalThis.sudokuApp) globalThis.sudokuApp.stopTimer();
+  if (globalThis.sudokuApp) {
+    globalThis.sudokuApp.stopTimer();
+    globalThis.sudokuApp.stopUpdates();
+  }
   dom.window.close();
 });
 
@@ -256,4 +259,111 @@ test('wrong-flagging follows visible conflicts, not the stored solution', async 
     'a duplicate inside a unit must still be flagged'
   );
   assert.equal($('mistakeCount').textContent, '1', 'the duplicate counts as one mistake');
+});
+
+/* ------------------------------------------------------------------ *
+ * update channel. jsdom has no service worker, so the container, the
+ * registration and the reload are all faked and handed to initUpdates.
+ * ------------------------------------------------------------------ */
+
+test('a waiting service worker offers an update, and Update hands over then reloads', async () => {
+  $('updateBar').hidden = true;
+  const posted = [];
+  const worker = { postMessage: (m) => posted.push(m) };
+  const reg = new dom.window.EventTarget();
+  reg.waiting = worker;
+  reg.update = () => Promise.resolve();
+  const container = new dom.window.EventTarget();
+  let reloads = 0;
+
+  const stop = globalThis.sudokuApp.initUpdates({
+    sw: container,
+    register: () => Promise.resolve(reg),
+    reload: () => {
+      reloads++;
+    }
+  });
+
+  await waitFor(() => !$('updateBar').hidden, 2000, 'update bar to appear');
+  assert.equal($('updateBtn').textContent, 'Update');
+
+  $('updateBtn').click();
+  assert.deepEqual(posted, [{ type: 'SKIP_WAITING' }], 'Update must send SKIP_WAITING');
+  assert.equal($('updateBtn').disabled, true, 'the button is spent once pressed');
+  assert.equal(reloads, 0, 'nothing reloads before the worker has actually taken over');
+
+  container.dispatchEvent(new dom.window.Event('controllerchange'));
+  await waitFor(() => reloads === 1, 2000, 'reload once the new worker claims control');
+  stop();
+});
+
+test('a first-install controller claim does not reload the page', async () => {
+  $('updateBar').hidden = true;
+  const reg = new dom.window.EventTarget();
+  reg.update = () => Promise.resolve();
+  const container = new dom.window.EventTarget();
+  let reloads = 0;
+
+  const stop = globalThis.sudokuApp.initUpdates({
+    sw: container,
+    register: () => Promise.resolve(reg),
+    reload: () => {
+      reloads++;
+    }
+  });
+  await sleep(50);
+  assert.equal($('updateBar').hidden, true, 'nothing to offer when no worker is waiting');
+
+  container.dispatchEvent(new dom.window.Event('controllerchange'));
+  await sleep(50);
+  assert.equal(reloads, 0, 'the initial claim must not reload, or the page loops');
+  stop();
+});
+
+test('a newly installed worker with an existing controller offers the update', async () => {
+  $('updateBar').hidden = true;
+  const worker = new dom.window.EventTarget();
+  worker.state = 'installed';
+  worker.postMessage = () => {};
+  const reg = new dom.window.EventTarget();
+  reg.installing = worker;
+  reg.update = () => Promise.resolve();
+  const container = new dom.window.EventTarget();
+  container.controller = {}; // a shell is already in control, so this is an update
+
+  const stop = globalThis.sudokuApp.initUpdates({
+    sw: container,
+    register: () => Promise.resolve(reg),
+    reload: () => {}
+  });
+  await sleep(20);
+  reg.dispatchEvent(new dom.window.Event('updatefound'));
+  worker.dispatchEvent(new dom.window.Event('statechange'));
+  await waitFor(() => !$('updateBar').hidden, 2000, 'update bar from updatefound');
+
+  $('updateDismiss').click();
+  assert.equal($('updateBar').hidden, true, 'dismissing hides the notice');
+  stop();
+});
+
+test('a first install is not offered as an update', async () => {
+  $('updateBar').hidden = true;
+  const worker = new dom.window.EventTarget();
+  worker.state = 'installed';
+  const reg = new dom.window.EventTarget();
+  reg.installing = worker;
+  reg.update = () => Promise.resolve();
+  const container = new dom.window.EventTarget(); // controller stays null
+
+  const stop = globalThis.sudokuApp.initUpdates({
+    sw: container,
+    register: () => Promise.resolve(reg),
+    reload: () => {}
+  });
+  await sleep(20);
+  reg.dispatchEvent(new dom.window.Event('updatefound'));
+  worker.dispatchEvent(new dom.window.Event('statechange'));
+  await sleep(50);
+  assert.equal($('updateBar').hidden, true, 'there is nothing to update *from* on a first install');
+  stop();
 });

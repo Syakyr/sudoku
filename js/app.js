@@ -1053,18 +1053,109 @@ function moveSelection(key) {
 
 init();
 
+/* ------------------------------------------------------------------ *
+ * update channel
+ *
+ * The worker used to call skipWaiting() the moment it installed, so a
+ * deploy swapped the shell underneath a live game without anyone agreeing
+ * to it -- and with assets served cache-first, the new build only surfaced
+ * on the *second* load anyway, which is why a hard refresh felt like the
+ * only honest option. Now a new worker parks in `waiting`, the page offers
+ * the update, and the user's tap is what takes effect.
+ *
+ * Deps are injectable because jsdom has no service worker and no reload.
+ * ------------------------------------------------------------------ */
+let updatePollTimer = null;
+
+function stopUpdates() {
+  if (updatePollTimer) {
+    clearInterval(updatePollTimer);
+    updatePollTimer = null;
+  }
+}
+
+function initUpdates(deps = {}) {
+  const sw = 'sw' in deps ? deps.sw : navigator.serviceWorker;
+  const register = deps.register || (() => sw.register('sw.js'));
+  const reload = deps.reload || (() => location.reload());
+  if (!sw) return stopUpdates;
+
+  let offered = false;
+  let requested = false;
+
+  const offer = (worker) => {
+    if (offered) return;
+    offered = true;
+    const bar = $('updateBar');
+    const btn = $('updateBtn');
+    bar.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Update';
+    btn.addEventListener('click', () => {
+      if (requested) return;
+      requested = true;
+      btn.disabled = true;
+      btn.textContent = 'Updating…';
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    });
+    $('updateDismiss').addEventListener('click', () => {
+      bar.hidden = true;
+    });
+  };
+
+  Promise.resolve()
+    .then(register)
+    .then((reg) => {
+      if (reg.waiting) offer(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          // 'installed' only means "an update is waiting" if we already had a
+          // controller. On a first install it just means the shell got cached,
+          // and there is nothing to update *from*.
+          if (nw.state === 'installed' && sw.controller) offer(nw);
+        });
+      });
+      // Nothing else re-checks sw.js for a session that never re-navigates,
+      // which is exactly the long-lived tab that would otherwise never learn a
+      // new version exists.
+      const check = () => Promise.resolve().then(() => reg.update()).catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) check();
+      });
+      updatePollTimer = setInterval(check, 60000);
+    })
+    .catch(() => {
+      /* offline support is an enhancement; never break the app over it */
+    });
+
+  sw.addEventListener('controllerchange', () => {
+    // A first install claims the page straight away. Reloading on that would
+    // loop, so only the update the user actually asked for reloads.
+    if (requested) reload();
+  });
+
+  return stopUpdates;
+}
+
 // Installable as a standalone app, and fully usable offline once cached.
 // Relative path so the scope lands on /sudoku/ under a project page.
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {
-      /* offline support is an enhancement; never break the app over it */
-    });
-  });
+  window.addEventListener('load', () => initUpdates());
 }
 
 /**
  * Debug handle: `sudokuApp` in the browser console lets you inspect live state,
  * and lets the DOM test harness shut the clock down so the process can exit.
  */
-globalThis.sudokuApp = { state, store, stopTimer, startGeneration, PEERS, syncModeUi };
+globalThis.sudokuApp = {
+  state,
+  store,
+  stopTimer,
+  startGeneration,
+  PEERS,
+  syncModeUi,
+  initUpdates,
+  stopUpdates
+};

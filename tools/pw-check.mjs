@@ -439,6 +439,56 @@ await scenario('08-data', { width: 1280, height: 1000 }, 'dark', async (page) =>
   await page.screenshot({ path: `${OUT}/08-data-tab.png`, fullPage: true });
 });
 
+await scenario('09-update-bar', { width: 1280, height: 1000 }, 'dark', async (page) => {
+  // jsdom cannot check the bar's CSS, so drive the real one with a fake
+  // waiting worker and measure it.
+  await page.evaluate(() => {
+    const worker = { postMessage() {} };
+    window.__stop = sudokuApp.initUpdates({
+      sw: new EventTarget(),
+      register: () => Promise.resolve({ waiting: worker, update: () => Promise.resolve() }),
+      reload: () => {}
+    });
+  });
+  await page.waitForFunction(() => !document.getElementById('updateBar').hidden, null, { timeout: 5000 });
+  await page.waitForTimeout(300); // let the drop-in animation settle
+  const bar = await page.evaluate(() => {
+    const el = document.getElementById('updateBar');
+    const b = el.getBoundingClientRect();
+    const btn = document.getElementById('updateBtn').getBoundingClientRect();
+    return {
+      top: Math.round(b.top),
+      h: Math.round(b.height),
+      w: Math.round(b.width),
+      winW: window.innerWidth,
+      opacity: getComputedStyle(el).opacity,
+      btnSize: `${Math.round(btn.width)}x${Math.round(btn.height)}`,
+      pageScrolls: document.documentElement.scrollHeight > window.innerHeight + 2
+    };
+  });
+  results.updateBar = bar;
+  if (bar.top !== 0) problems.push(`update bar should pin to the top, got top=${bar.top}`);
+  if (bar.w !== bar.winW) problems.push(`update bar should span the viewport, got ${bar.w}/${bar.winW}`);
+  if (bar.opacity !== '1') problems.push(`update bar is not opaque: ${bar.opacity}`);
+  if (bar.h < 24) problems.push(`update bar is only ${bar.h}px tall`);
+  if (bar.btnSize.startsWith('0') || bar.btnSize.includes('x0')) {
+    problems.push(`update button has no size: ${bar.btnSize}`);
+  }
+  if (bar.pageScrolls) problems.push('the update bar made the page scroll');
+  await page.screenshot({ path: `${OUT}/09-update-bar-shown.png` });
+
+  await page.click('#updateDismiss');
+  await page.waitForTimeout(120);
+  const dismissed = await page.evaluate(() => ({
+    hidden: document.getElementById('updateBar').hidden,
+    display: getComputedStyle(document.getElementById('updateBar')).display
+  }));
+  results.updateBarDismissed = dismissed;
+  if (!dismissed.hidden) problems.push('dismiss did not hide the update bar');
+  if (dismissed.display !== 'none') problems.push(`hidden bar still displays as ${dismissed.display}`);
+  await page.evaluate(() => window.__stop && window.__stop());
+});
+
 await scenario('10-themes', { width: 1280, height: 1000 }, 'dark', async (page) => {
   // Select a cell first so the accent-tinted selection background is measurable.
   // NB: data-row/data-col are within-box (0-2); board position is data-index.
