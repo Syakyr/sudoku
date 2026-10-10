@@ -63,7 +63,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu runners ship the Android SDK pre-installed, so no
+      # setup action is used. android-actions/setup-android@v3 was tried and
+      # fails on today's SDK repo: it still tries to install the legacy `tools`
+      # package, which Google removed --
+      #   Warning: Failed to find package 'tools'
+      #   Error: ... sdkmanager failed with exit code 1
+      - name: Point at the pre-installed Android SDK
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [ ! -d "$SDK" ]; then
+            echo "::error::No Android SDK at $SDK"
+            ls -la /usr/local/lib/android 2>/dev/null || echo "  (nothing under /usr/local/lib/android)"
+            exit 1
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "cmdline-tools: $(ls "$SDK/cmdline-tools" 2>/dev/null | tr '\n' ' ')"
+          echo "build-tools:   $(ls "$SDK/build-tools" 2>/dev/null | tr '\n' ' ')"
+          echo "platforms:     $(ls "$SDK/platforms" 2>/dev/null | tr '\n' ' ')"
 
       - uses: actions/setup-node@v4
         with:
