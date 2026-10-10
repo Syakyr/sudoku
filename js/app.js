@@ -1166,6 +1166,53 @@ function initUpdates(deps = {}) {
   return stopUpdates;
 }
 
+/*
+ * Ask the OS not to evict this origin's storage.
+ *
+ * Capacitor's storage guide is blunt about the default: WebView localStorage
+ * "must be considered transient, meaning your app needs to expect that the
+ * data will be lost eventually... the OS will reclaim local storage from Web
+ * Views if a device is running low on space." The entire puzzle library is
+ * one localStorage document (sudoku.library.v1), so that reclaim is a user's
+ * library disappearing with no warning.
+ *
+ * navigator.storage.persist() is the standard signal: on Android it opts the
+ * origin out of eviction. It is heuristic and NOT a guarantee -- which is why
+ * the result is surfaced rather than assumed. Measured cost of a puzzle record
+ * is ~792 bytes, so ~6.6k puzzles fit in the usual 5 MiB quota; eviction,
+ * not quota, is the failure mode being addressed here.
+ *
+ * Deliberately never throws: these APIs are absent in older WebViews and in
+ * some private modes, and persistence is an enhancement, not a precondition
+ * for playing.
+ */
+async function requestPersistentStorage(storage = globalThis.navigator?.storage) {
+  if (!storage || typeof storage.persist !== 'function') {
+    return { supported: false, persisted: false };
+  }
+  try {
+    if (typeof storage.persisted === 'function' && (await storage.persisted())) {
+      return { supported: true, persisted: true };
+    }
+    const granted = await storage.persist();
+    return { supported: true, persisted: Boolean(granted) };
+  } catch {
+    return { supported: true, persisted: false, failed: true };
+  }
+}
+
+// Fire-and-forget at startup, in both the PWA and the packaged app: the
+// eviction risk exists in both, and the call is harmless where persistence is
+// already automatic. The warn is the only visible signal that a user's library
+// is in the reclaimable set, so it is worth the one line.
+requestPersistentStorage().then((r) => {
+  if (r.supported && !r.persisted) {
+    console.warn(
+      'persistent storage not granted: the puzzle library may be evicted if the device runs low on space',
+    );
+  }
+});
+
 // PWA only. The service worker is the rolling-update mechanism for the deployed
 // site: it precaches the shell and lets a new deploy be offered in-app. In the
 // packaged app the assets are already local and frozen into the APK, so a worker
@@ -1197,5 +1244,6 @@ globalThis.sudokuApp = {
   syncModeUi,
   initUpdates,
   stopUpdates,
-  isNativeApp
+  isNativeApp,
+  requestPersistentStorage
 };
