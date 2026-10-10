@@ -1,0 +1,155 @@
+name: Android TWA release
+
+# Wraps the PWA in a Trusted Web Activity and publishes the signed APK as a
+# GitHub Release asset, which is what Obtainium tracks.
+#
+# PREREQUISITES -- this job fails loudly rather than silently producing a
+# throwaway build, because a rotating signing key makes every later release
+# uninstallable over the previous one:
+#
+#   secrets.TWA_KEYSTORE_BASE64    the signing keystore, base64 (see
+#                                 tools/make-twa-keystore.sh)
+#   secrets.TWA_KEYSTORE_PASSWORD  store password
+#   secrets.TWA_KEY_PASSWORD       key password
+#   android/                       the Bubblewrap project, generated ONCE by
+#                                 `bubblewrap init` and committed. `init` is
+#                                 interactive, so it cannot run in CI.
+#
+# And separately, outside this repo: Digital Asset Links must be reachable at
+# https://syakyr.github.io/.well-known/assetlinks.json -- the ORIGIN ROOT,
+# not /sudoku/. Without it the APK still installs and runs, but falls back to
+# a Chrome Custom Tab with browser UI instead of a trusted full-screen app.
+# See ANDROID-TWA.md.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g. v1.0.0)'
+        required: true
+        type: string
+
+# Needed to create the release and upload assets.
+permissions:
+  contents: write
+
+concurrency:
+  group: android-twa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Bubblewrap needs a JDK and the Android SDK. setup-android installs the
+      # command-line tools, build-tools and a platform, and exports ANDROID_HOME.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Check the generated project is committed
+        run: |
+          if [ ! -f android/twa-manifest.json ]; then
+            echo "::error::android/twa-manifest.json not found. Run \`bubblewrap init\` once"
+            echo "  (it is interactive, so not runnable in CI) and commit the android/ directory."
+            echo "  See ANDROID-TWA.md."
+            exit 1
+          fi
+
+      - name: Restore the signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.TWA_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "${KEYSTORE_B64:-}" ]; then
+            echo "::error::TWA_KEYSTORE_BASE64 is not set. Generate a keystore with"
+            echo "  tools/make-twa-keystore.sh and store it, with its passwords, as repo secrets."
+            echo "  Do NOT let CI generate a fresh key per build: Android refuses to update an"
+            echo "  app when the signing certificate changes, so every release would be a"
+            echo "  clean-install-only app and Obtainium updates would break."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/twa.keystore"
+          test -s "$RUNNER_TEMP/twa.keystore"
+
+      # Bump versionCode from the committed manifest so Android treats this as
+      # an upgrade rather than a conflicting reinstall.
+      - name: Sync the project with the web manifest
+        run: bubblewrap update --manifest=android --appVersionName "${{ steps.tag.outputs.tag }}"
+
+      - name: Build and sign
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.TWA_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.TWA_KEY_PASSWORD }}
+        run: |
+          # --skipPwaValidation: the quality-criteria check calls the live site
+          # and fails on things this repo cannot fix (Lighthouse flakiness,
+          # GitHub Pages headers). Run `bubblewrap validate` by hand if you want it.
+          bubblewrap build \
+            --manifest=android \
+            --signingKeyPath "$RUNNER_TEMP/twa.keystore" \
+            --skipPwaValidation
+
+      - name: Record the signing certificate fingerprint
+        # Needed for .well-known/assetlinks.json. Printed into the log rather
+        # than the repo, since it is derived from a secret you control.
+        env:
+          STOREPASS: ${{ secrets.TWA_KEYSTORE_PASSWORD }}
+        run: |
+          echo "=== SHA-256 certificate fingerprint (for assetlinks.json) ==="
+          keytool -list -rfc -keystore "$RUNNER_TEMP/twa.keystore" \
+            -storepass:env STOREPASS 2>/dev/null \
+            | openssl x509 -noout -fingerprint -sha256 | sed 's/^.*=//'
+          echo "=============================================================="
+
+      - name: Stage the assets
+        run: |
+          mkdir -p out
+          TAG="${{ steps.tag.outputs.tag }}"
+          cp app-release-signed.apk "out/sudoku-twa-$TAG.apk"
+          # The AAB is only useful if you ever go to Play Store; harmless to ship.
+          if [ -f app-release-bundle.aab ]; then
+            cp app-release-bundle.aab "out/sudoku-twa-$TAG.aab"
+          fi
+          ls -la out/
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/* --clobber
+          else
+            gh release create "$TAG" out/* \
+              --title "Sudoku TWA $TAG" \
+              --notes-file "$GITHUB_WORKSPACE/.github/twa-release-notes.md" \
+              || gh release create "$TAG" out/* --title "Sudoku TWA $TAG"
+          fi
+          echo
+          echo "Obtainium: add this repo and point it at the latest release APK asset"
+          gh release view "$TAG" --json assets --jq '.assets[].name'
