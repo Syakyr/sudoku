@@ -4,9 +4,13 @@
 
    Navigation is network-first so a deployed update shows up on the next load,
    falling back to the cached shell when offline. Static assets are cache-first
-   with a background refresh, which keeps the board instant. */
+   with a background refresh, which keeps the board instant.
 
-const CACHE = 'sudoku-shell-v1';
+   BECAUSE of that cache-first path, changing css/ or js/ without bumping CACHE
+   means a returning visitor sees the previous build on their first load and
+   the new one only on the second. Bump CACHE with every shell change. */
+
+const CACHE = 'sudoku-shell-v2';
 
 const SHELL = [
   './',
