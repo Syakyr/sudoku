@@ -15,6 +15,11 @@ name: Version drift badge
 on:
   push:
     branches: [main]
+    # Cutting a release tag usually happens on a commit already on main, so
+    # without also watching tags the badge keeps reporting the PREVIOUS release
+    # until the next main push -- i.e. it says "+3 commits" right after you
+    # shipped, which is exactly the signal it exists to give.
+    tags: ['v*']
     paths-ignore:
       - '.github/badges/**'
   schedule:
@@ -32,6 +37,14 @@ jobs:
         with:
           # Tags are needed to compute drift; the default shallow clone has none.
           fetch-depth: 0
+
+      - name: Work on main, not whatever triggered this
+        # A tag push checks out the tag in detached HEAD, where `git push` has
+        # no upstream and the commit step would fail. And if a tag is ever cut
+        # on an older commit, pushing that HEAD to main would move main
+        # backwards. So pin to origin/main first: the badge describes main,
+        # no matter which ref fired the workflow.
+        run: git checkout -B main origin/main
 
       - name: Compute drift since the latest release tag
         run: |
