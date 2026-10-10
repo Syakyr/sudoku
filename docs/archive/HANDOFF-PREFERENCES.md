@@ -1,4 +1,21 @@
-# HANDOFF — `@capacitor/preferences` migration (open task)
+# HANDOFF — `@capacitor/preferences` migration
+
+> **COMPLETED 2026-10-10 in v0.2.3.** Kept as a record of the reasoning and
+> the measured scope. Implemented as recommended here: load-at-boot /
+> write-through, `store.js` unchanged, all 24 `app.js` call sites untouched.
+>
+> One deviation worth knowing: the plan assumed importing the JS package. This
+> project has no bundler, so the JS reaches the plugin through the Capacitor
+> global bridge instead (`cap.nativePromise` + `cap.PluginHeaders`), verified
+> against `@capacitor/core`'s bridge source. The npm package is used only by
+> `cap sync` to install the Android side.
+>
+> Shipped as: `js/native-storage.js`, wired in `js/app.js`, 17 tests in
+> `tests/native-storage.test.js`. Verified in the released APK:
+> `com/capacitorjs/plugins/preferences/PreferencesPlugin` present in
+> classes.dex, `versionCode 2003`.
+
+---
 
 Written 2026-10-10, after v0.2.2 shipped. Deliberately deferred to a fresh
 session: it is a real refactor, not a one-liner, and it was the cheaper
