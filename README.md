@@ -16,7 +16,7 @@ No build step, no backend — static files.
 [![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
 [![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
 [![Android](https://img.shields.io/badge/minSdk-24%20%28Android%207.0%29-blue)](docs/DEVELOPMENT.md#the-android-apk)
-[![Obtainium](https://img.shields.io/badge/Obtainium-install-orange)](obtainium://add/https://github.com/Syakyr/sudoku)
+[![Get it on Obtainium](https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Syakyr/sudoku)
 [![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](docs/DEVELOPMENT.md#what-zero-deps-means-here)
 [![License](https://img.shields.io/github/license/Syakyr/sudoku)](LICENSE)
 

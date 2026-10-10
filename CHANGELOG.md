@@ -45,10 +45,15 @@ where the plugin reports support.
 
 **Unverified on hardware.** The JS derivation half is covered by 19 tests
 including a 36-hue contrast sweep, but the native half has not been run on a real
-Android 12+ device. If `DynamicColors.wrapContextIfAvailable` does not yield a
-seed under the Capacitor theme, the plugin reports unsupported and the swatch is
-never shown — a safe failure, but it would mean the feature is inert rather than
-wrong.
+Android 12+ device. If the `system_accent1_500` platform resource cannot be
+resolved, the plugin reports unsupported and the swatch is never shown — a safe
+failure, but it would mean the feature is inert rather than wrong.
+
+The Material Components dependency was dropped in favour of the **platform**
+Material You palette resources (`android.R.color.system_accent1_*`, API 31+),
+looked up by name at runtime via `getIdentifier()`. Smaller APK, one less
+versioned dependency, and a missing resource degrades gracefully instead of
+failing the build.
 
 ---
 

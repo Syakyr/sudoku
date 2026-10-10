@@ -7,9 +7,12 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Must be registered before super.onCreate() so the bridge exposes
-        // DynamicTheme to the page before any script asks for it.
-        registerPlugin(new DynamicThemePlugin());
+        // Capacitor's registerPlugin takes the Class, not an instance -- passing
+        // `new DynamicThemePlugin()` fails to compile with
+        // "incompatible types: DynamicThemePlugin cannot be converted to
+        // Class<? extends Plugin>". Must be registered before super.onCreate()
+        // so the bridge exposes DynamicTheme before any page script asks.
+        registerPlugin(DynamicThemePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
