@@ -1,6 +1,19 @@
 # Sudoku — seeded generator, uniqueness-checked, local-first
 
+[![CI](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml/badge.svg)](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Syakyr/sudoku)](https://github.com/Syakyr/sudoku/releases)
 [![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
+[![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
+[![Android](https://img.shields.io/badge/minSdk-24%20(Android%207.0)-blue)](docs/DEVELOPMENT.md#the-android-apk)
+[![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](#layout)
+
+> **No license badge, deliberately** — there is no `LICENSE` file in this repo.
+> Default copyright applies. Add one before claiming anything.
+>
+> "Zero deps" means the **web bundle**: every import in `dist/js/` is relative,
+> verified by grep. `package.json` does carry `@capacitor/*`, but those exist
+> only to build the native wrapper — nothing in the shipped web app imports
+> them at runtime.
 
 A single-page Sudoku that generates puzzles **to a difficulty contract rather than
 a vibe**, refuses to hand you a puzzle you have already played (even in a rotated,
