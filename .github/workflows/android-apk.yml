@@ -160,12 +160,18 @@ jobs:
             const fs = require("fs");
             const file = "android/app/build.gradle";
             let src = fs.readFileSync(file, "utf8");
-            const before = src;
-            src = src.replace(/versionCode\s+\d+/, `versionCode ${Number(process.argv[1])}`);
-            src = src.replace(/versionName\s+"[^"]*"/, `versionName "${process.argv[2]}"`);
-            if (src === before) {
+            // Test that the PATTERNS exist, not that the text changed. The
+            // committed values normally already match the tag, because the
+            // committed version tracks the latest release -- a "nothing
+            // changed" guard then throws and fails the build for no reason.
+            // That is exactly what killed the v0.2.5 build.
+            const codeRe = /versionCode\s+\d+/;
+            const nameRe = /versionName\s+"[^"]*"/;
+            if (!codeRe.test(src) || !nameRe.test(src)) {
               throw new Error("Could not find versionCode / versionName in " + file);
             }
+            src = src.replace(codeRe, `versionCode ${Number(process.argv[1])}`);
+            src = src.replace(nameRe, `versionName "${process.argv[2]}"`);
             fs.writeFileSync(file, src);
           ' "$CODE" "$TAG"
           # Stamp the UI-visible version from the same tag, so a packaged app
@@ -173,11 +179,11 @@ jobs:
           node -e '
             const fs = require("fs");
             const file = "js/version.js";
-            let src = fs.readFileSync(file, "utf8");
+            const src = fs.readFileSync(file, "utf8");
             const bare = process.argv[1].replace(/^v/, "");
-            const next = src.replace(/export const APP_VERSION = \x27[^\x27]*\x27/, `export const APP_VERSION = \x27${bare}\x27`);
-            if (next === src) throw new Error("Could not find APP_VERSION in " + file);
-            fs.writeFileSync(file, next);
+            const re = /export const APP_VERSION = \x27[^\x27]*\x27/;
+            if (!re.test(src)) throw new Error("Could not find APP_VERSION in " + file);
+            fs.writeFileSync(file, src.replace(re, `export const APP_VERSION = \x27${bare}\x27`));
           ' "$TAG"
           grep -nE 'versionCode|versionName' android/app/build.gradle
           grep -n 'APP_VERSION' js/version.js
