@@ -69,6 +69,26 @@ jobs:
       # package, which Google removed --
       #   Warning: Failed to find package 'tools'
       #   Error: ... sdkmanager failed with exit code 1
+      # THE ACTUAL BLOCKER, read out of bubblewrap 1.27.0 rather than guessed.
+      # core/lib/androidSdk/AndroidSdkTools.js:
+      #
+      #   static async validatePath(sdkPath) {
+      #     const toolsPath = path.join(sdkPath, 'tools');
+      #     const binPath = path.join(sdkPath, 'bin');
+      #     if (!fs.existsSync(sdkPath) || (!fs.existsSync(toolsPath)) && !fs.existsSync(binPath)) {
+      #       return Result.error(new ValidatePathError('The provided androidSdk isn\'t correct.',
+      #                                              'PathIsNotCorrect'));
+      #
+      # i.e. the SDK ROOT is accepted only if it contains `tools/` (the legacy
+      # layout) or `bin/` (the layout used once cmdline-tools >= 6858069 is
+      # unzipped at the root). Runner images ship cmdline-tools at
+      # $SDK/cmdline-tools/latest and have neither, so the check fails with
+      # "The provided androidSdk isn't correct." even though build-tools and
+      # platforms are all present -- which is exactly what the log showed.
+      #
+      # Expose the new-layout `bin` at the SDK root. Verified usable via
+      # `sdkmanager --version` below, so if the symlinked launcher ever fails to
+      # resolve its own APP_HOME we find out here instead of mid-build.
       - name: Point at the pre-installed Android SDK
         run: |
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
@@ -77,6 +97,20 @@ jobs:
             ls -la /usr/local/lib/android 2>/dev/null || echo "  (nothing under /usr/local/lib/android)"
             exit 1
           fi
+
+          if [ ! -e "$SDK/bin" ] && [ ! -e "$SDK/tools" ]; then
+            if [ -w "$SDK" ]; then
+              ln -s "$SDK/cmdline-tools/latest/bin" "$SDK/bin"
+            else
+              sudo ln -s "$SDK/cmdline-tools/latest/bin" "$SDK/bin"
+            fi
+            echo "Linked $SDK/bin -> $SDK/cmdline-tools/latest/bin"
+          else
+            echo "$SDK already has $( [ -e "$SDK/bin" ] && echo bin || echo tools )"
+          fi
+
+          echo "sdkmanager: $("$SDK/bin/sdkmanager" --version)"
+
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "cmdline-tools: $(ls "$SDK/cmdline-tools" 2>/dev/null | tr '\n' ' ')"
@@ -89,6 +123,27 @@ jobs:
 
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
+
+      # bubblewrap shells out to ONE exact build-tools version, hard-coded as
+      # BUILD_TOOLS_VERSION in @bubblewrap/core. `build` calls checkBuildTools()
+      # and, if it is missing, installBuildTools() -- which resolves sdkmanager at
+      # $SDK/tools/bin/sdkmanager first and only then $SDK/bin/sdkmanager. Read
+      # the constant from the installed package instead of hard-coding it here, so
+      # a bubblewrap bump cannot silently desync this workflow from it.
+      # (Measured 2026-10-10: the runner already carries 36.1.0, so this step is
+      # insurance against a future image, not the current fix.)
+      - name: Ensure the build-tools bubblewrap requires
+        run: |
+          REQUIRED=$(NODE_PATH="$(npm root -g)" node -e \
+            'console.log(require("@bubblewrap/core/dist/lib/androidSdk/AndroidSdkTools.js").BUILD_TOOLS_VERSION)')
+          echo "bubblewrap requires build-tools;$REQUIRED"
+          if [ -d "$ANDROID_HOME/build-tools/$REQUIRED" ]; then
+            echo "Already present."
+          else
+            echo "Installing via sdkmanager..."
+            yes | "$ANDROID_HOME/bin/sdkmanager" --install "build-tools;$REQUIRED" --sdk_root="$ANDROID_HOME"
+            test -d "$ANDROID_HOME/build-tools/$REQUIRED"
+          fi
 
       - name: Check the generated project is committed
         run: |
@@ -131,33 +186,85 @@ jobs:
           EOF
           cat "$HOME/.bubblewrap/config.json"
 
-      # Bump versionCode from the committed manifest so Android treats this as
-      # an upgrade rather than a conflicting reinstall.
-      # NB: `update`'s --manifest wants the twa-manifest.json FILE. Passing the
-      # directory gives "EISDIR: illegal operation on a directory, read"
-      # (measured). `build`'s --manifest is documented as a directory, so it is
-      # left alone -- one variable changed per run.
+      # versionCode must INCREASE across releases or Android refuses to update an
+      # existing install in place (and Obtainium stops offering the app). The old
+      # step let `bubblewrap update` compute it, which is
+      #   appVersionCode = <value committed in twa-manifest.json> + 1
+      # (shared.js updateVersions) -- and CI never commits the bumped manifest
+      # back, so every release would have shipped the same versionCode 2 and the
+      # second install-over would have failed. Derive it from the tag instead:
+      # monotonic for as long as the tags are monotonic.
+      - name: Stamp the app version from the tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # NB: the pre-release suffix is ignored by the derivation, so
+          # `v1.0.0-rc` and `v1.0.0` map to the SAME versionCode. Do not ship
+          # both -- the second is not an upgrade. The resolved code is echoed
+          # below; check it before trusting a release.
+          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH -- cannot derive a monotonic versionCode."
+            exit 1
+          fi
+          CODE=$(printf '%s' "${TAG#v}" | awk -F'[.-]' '{printf "%d%03d%03d", $1, $2, $3}')
+          echo "tag=$TAG -> versionCode=$CODE versionName=$TAG"
+          node -e '
+            const fs = require("fs");
+            const file = process.argv[1];
+            const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+            manifest.appVersionCode = Number(process.argv[2]);
+            manifest.appVersionName = process.argv[3];
+            fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+          ' android/twa-manifest.json "$CODE" "$TAG"
+
+      # --directory is REQUIRED and was the second latent bug. In cmds/update.js
+      # `targetDirectory = args.directory`, and updateProject() falls back to
+      # process.cwd() when it is undefined -- so the previous invocation
+      # regenerated the ENTIRE Android project into the repo root next to
+      # index.html (the log said "Generating Android Project." and passed), and
+      # wrote manifest-checksum.txt there too. The committed android/ tree was
+      # never the thing being built.
+      #
+      # --skipVersionUpgrade because the version was stamped above: with it set,
+      # updateProject() skips updateVersions() AND skips saveToFile(), so the
+      # generated Gradle project uses exactly the values we just wrote and the
+      # on-disk manifest (hence the checksum `build` compares against) is left
+      # consistent.
       - name: Sync the project with the web manifest
-        run: bubblewrap update --manifest=android/twa-manifest.json --appVersionName "${{ steps.tag.outputs.tag }}"
+        run: |
+          bubblewrap update \
+            --directory=android \
+            --manifest=android/twa-manifest.json \
+            --skipVersionUpgrade
 
       - name: Build and sign
         env:
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.TWA_KEYSTORE_PASSWORD }}
           BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.TWA_KEY_PASSWORD }}
+        working-directory: android
         run: |
-          # --skipPwaValidation: the quality-criteria check calls the live site
-          # and fails on things this repo cannot fix (Lighthouse flakiness,
-          # GitHub Pages headers). Run `bubblewrap validate` by hand if you want it.
+          # Run INSIDE the project directory. GradleWrapper is constructed as
+          # `new GradleWrapper(process, androidSdkTools)` in cmds/build.js -- no
+          # projectLocation argument -- so `projectLocation = process.cwd()` and
+          # gradlew is always executed in the current directory regardless of
+          # --directory. `--manifest` is a FILE path here too (build.js:
+          # `TwaManifest.fromFile(this.args.manifest)`), not a directory as the
+          # old comment claimed; `--manifest=android` would have thrown EISDIR
+          # the moment the SDK check stopped failing first.
+          #
+          # --skipPwaValidation was dropped: minimist accepts any flag, but
+          # nothing in cmds/build.js ever reads it in 1.27.0 -- PWA quality
+          # validation is a separate `bubblewrap validate` command. It was a
+          # no-op dressed up as a workaround.
+          #
           # --signingKeyAlias is pinned because the generated twa-manifest.json
           # carries alias "android" (bubblewrap's own default from the key it
           # minted during init), but the key stored in TWA_KEYSTORE_BASE64 was
           # created with alias "sudoku-twa". Without this the build looks for an
           # alias that does not exist in the secret keystore and fails.
           bubblewrap build \
-            --manifest=android \
+            --manifest=twa-manifest.json \
             --signingKeyPath "$RUNNER_TEMP/twa.keystore" \
-            --signingKeyAlias sudoku-twa \
-            --skipPwaValidation
+            --signingKeyAlias sudoku-twa
 
       - name: Record the signing certificate fingerprint
         # Needed for .well-known/assetlinks.json. Printed into the log rather
@@ -173,12 +280,14 @@ jobs:
 
       - name: Stage the assets
         run: |
+          # Output paths are relative to the project directory (cmds/build.js:
+          # APK_SIGNED_FILE_NAME = './app-release-signed.apk', cwd = android/).
           mkdir -p out
           TAG="${{ steps.tag.outputs.tag }}"
-          cp app-release-signed.apk "out/sudoku-twa-$TAG.apk"
+          cp android/app-release-signed.apk "out/sudoku-twa-$TAG.apk"
           # The AAB is only useful if you ever go to Play Store; harmless to ship.
-          if [ -f app-release-bundle.aab ]; then
-            cp app-release-bundle.aab "out/sudoku-twa-$TAG.aab"
+          if [ -f android/app-release-bundle.aab ]; then
+            cp android/app-release-bundle.aab "out/sudoku-twa-$TAG.aab"
           fi
           ls -la out/
 

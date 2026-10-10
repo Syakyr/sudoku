@@ -10,3 +10,12 @@ node_modules/
 *.p12
 *.pfx
 keystore.properties
+
+# Gradle output from building the TWA project locally (CI writes these too).
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app-release-signed.apk
+android/app-release-unsigned-aligned.apk
+android/app-release-bundle.aab
