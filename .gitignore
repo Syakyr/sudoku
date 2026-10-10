@@ -1,3 +1,12 @@
 node_modules/
 *.log
 .DS_Store
+
+# Signing keys must never be committed. bubblewrap init asks for a keystore
+# path -- point it at a mounted directory OUTSIDE the repo (see ANDROID-TWA.md),
+# and keep this ignore rule as the backstop.
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
