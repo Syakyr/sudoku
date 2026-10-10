@@ -154,11 +154,19 @@ body {
 /* ---------------- top bar ---------------- */
 .bar {
   flex: 0 0 auto;
-  height: var(--bar);
+  /* Height grows BY the notch inset rather than being pushed down by it, so
+     the row keeps its 52px of content height on a notched screen.
+     No-op wherever env() resolves to 0: Android Chrome insets content
+     itself, and the packaged APK now insets the WebView via
+     android:fitsSystemWindows. This only bites on iOS Safari with
+     viewport-fit=cover -- which is exactly where it is needed. The
+     padding-top longhand must follow the shorthand or it gets reset. */
+  height: calc(var(--bar) + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 12px;
+  padding-top: env(safe-area-inset-top, 0px);
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
@@ -350,6 +358,8 @@ button .key { color: inherit; text-decoration: underline; }
   border-top: 1px solid var(--line);
   background: var(--panel);
   padding: 7px 18px;
+  /* Same story as .bar: keep the footer clear of the home indicator. */
+  padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
   display: flex;
   justify-content: center;
 }
