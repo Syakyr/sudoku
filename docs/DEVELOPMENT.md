@@ -97,6 +97,30 @@ strings classes*.dex | grep preferences                 # native plugin compiled
 
 ---
 
+## What "zero deps" means here
+
+The README badge claims the **web bundle** has zero dependencies. That is a
+deliberate distinction, not marketing:
+
+- **Every import in `dist/js/` is relative.** Verified by grepping the built
+  bundle for non-relative `from '...'` specifiers. The shipped app pulls in
+  nothing at runtime — no framework, no utility library, no polyfill.
+- **`package.json` does carry `@capacitor/core` and `@capacitor/preferences`.**
+  Those exist only to build the *native wrapper*: `cap sync` uses them to
+  install the Android side of the storage plugin. Nothing in the web app
+  imports them.
+- **The native bridge is reached through the `window.Capacitor` global**, not an
+  `import`. This project ships raw ES modules with no bundler, so a bare
+  specifier like `@capacitor/preferences` could not resolve at runtime anyway.
+  See the header comment in `js/native-storage.js`.
+- **`jsdom` is the only real dependency**, and it is dev-only — used by the
+  test harness, never shipped.
+
+So: zero *runtime* dependencies in what the browser loads. The repo has build
+tooling, which is a different thing.
+
+---
+
 ## Test layout
 
 Tests are split by process deliberately. Several assert **import-time side

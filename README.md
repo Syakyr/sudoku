@@ -1,17 +1,10 @@
-# Sudoku — seeded generator, uniqueness-checked, local-first
+<div align="center">
 
-[![CI](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml/badge.svg)](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/Syakyr/sudoku)](https://github.com/Syakyr/sudoku/releases)
-[![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
-[![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
-[![Android](https://img.shields.io/badge/minSdk-24%20%28Android%207.0%29-blue)](docs/DEVELOPMENT.md#the-android-apk)
-[![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](#layout)
-[![License](https://img.shields.io/github/license/Syakyr/sudoku)](LICENSE)
+<img src="assets/icon-only.png" alt="Sudoku app icon — a 3×3 grid with the digits 5, 3, 7, 9 and 1" width="128" height="128">
 
-> "Zero deps" means the **web bundle**: every import in `dist/js/` is relative,
-> verified by grep. `package.json` does carry `@capacitor/*`, but those exist
-> only to build the native wrapper — nothing in the shipped web app imports
-> them at runtime.
+# Sudoku
+
+**Seeded generator · uniqueness-checked · local-first**
 
 A single-page Sudoku that generates puzzles **to a difficulty contract rather than
 a vibe**, refuses to hand you a puzzle you have already played (even in a rotated,
@@ -19,6 +12,16 @@ relabelled disguise), and keeps the whole library on your device with
 import/export so it can move between devices.
 
 No build step, no framework, no backend. Static files: `index.html`, `css/`, `js/`.
+
+[![CI](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml/badge.svg)](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Syakyr/sudoku)](https://github.com/Syakyr/sudoku/releases)
+[![Bundled APK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Syakyr/sudoku/main/.github/badges/version-drift.json)](https://github.com/Syakyr/sudoku/releases)
+[![Live PWA](https://img.shields.io/badge/live%20PWA-syakyr.github.io-blue?logo=pwa&logoColor=white)](https://syakyr.github.io/sudoku/)
+[![Android](https://img.shields.io/badge/minSdk-24%20%28Android%207.0%29-blue)](docs/DEVELOPMENT.md#the-android-apk)
+[![Web bundle](https://img.shields.io/badge/web%20bundle-zero%20deps-brightgreen)](docs/DEVELOPMENT.md#what-zero-deps-means-here)
+[![License](https://img.shields.io/github/license/Syakyr/sudoku)](LICENSE)
+
+</div>
 
 **In short:** difficulty = the hardest technique the cheapest logical solve needs,
 not the clue count. A board is only labelled tier T if it is solvable with T's
