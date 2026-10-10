@@ -1,17 +1,15 @@
 <div align="center">
 
-<img src="assets/icon-only.png" alt="Sudoku app icon — a 3×3 grid with the digits 5, 3, 7, 9 and 1" width="128" height="128">
+<img src="assets/icon-only.png" alt="Sudoku app icon" width="128" height="128">
 
 # Sudoku
 
 **Seeded generator · uniqueness-checked · local-first**
 
-A single-page Sudoku that generates puzzles **rated against a technique ladder
-rather than a clue count**, refuses to hand you a puzzle you have already played
-(even in a rotated, relabelled disguise), and keeps the whole library on your
-device with import/export so it can move between devices.
+A single-page Sudoku that rates puzzles by the hardest technique they need, never
+repeats one you have already played, and keeps the whole library on your device.
 
-No build step, no framework, no backend. Static files: `index.html`, `css/`, `js/`.
+No build step, no backend — static files.
 
 [![CI](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml/badge.svg)](https://github.com/Syakyr/sudoku/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/Syakyr/sudoku)](https://github.com/Syakyr/sudoku/releases)
@@ -23,14 +21,9 @@ No build step, no framework, no backend. Static files: `index.html`, `css/`, `js
 
 </div>
 
-**In short:** difficulty = the hardest technique the cheapest logical solve needs,
-not the clue count. A board accepted for tier T must be solvable with T's ladder
-and not with the tier below it. That is a real guarantee about *accepted* boards —
-but the upper tiers are **searched for**, not synthesised, so a share of boards
-fall back to whatever the generator actually reached, and how well the labels match
-how the tiers *play* is still an open question. Full detail in
-[docs/DIFFICULTY.md](docs/DIFFICULTY.md); the open balancing work is tracked in
-[the difficulty-calibration issue](https://github.com/Syakyr/sudoku/issues/1).
+**In short:** difficulty is the hardest technique the cheapest solve needs, not
+the clue count. [How it works →](docs/DIFFICULTY.md) ·
+[Known gaps →](https://github.com/Syakyr/sudoku/issues/1)
 
 ---
 

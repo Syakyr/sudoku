@@ -3,6 +3,14 @@
 Extracted from the README. This is the engine's contract; the README only states
 the summary.
 
+> **What the guarantee does and does not cover.** A board *accepted* for tier T is
+> solvable with T's ladder and not with the tier below it — that part is enforced.
+> But the upper tiers are **searched for**, not synthesised: a share of boards
+> fall back to whatever the generator actually reached, and the labels are a
+> solver-side measure of the *cheapest logical path*, not of how hard a human
+> finds the puzzle. Whether the tiers match actual play is unverified and tracked
+> in [issue #1](https://github.com/Syakyr/sudoku/issues/1).
+
 Difficulty is measured the way Sudoku Explainer measures it: **the hardest named
 technique the cheapest logical solve path requires** — not the clue count. A
 puzzle's rating is its single worst step, not a sum of steps.
