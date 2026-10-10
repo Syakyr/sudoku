@@ -134,6 +134,54 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # versionCode must INCREASE across releases or Android refuses to update
+      # an existing install in place (and Obtainium stops offering the app).
+      # Derived from the tag so it is monotonic for as long as the tags are:
+      #   major*1e6 + minor*1e3 + patch
+      # NB: the pre-release suffix is ignored, so `v1.0.0-rc` and `v1.0.0`
+      # map to the SAME versionCode. Do not ship both.
+      #
+      # ORDER MATTERS. This must run BEFORE `cap sync`, because that step is
+      # what copies dist/ into the native project. Stamping afterwards leaves
+      # the APK carrying the committed version instead of the tag's -- which
+      # is exactly how v0.2.4 shipped APP_VERSION '0.2.3' while the log
+      # cheerfully reported stamping 0.2.4. The stamp log line is not proof;
+      # check the APK.
+      - name: Stamp the app version from the tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH -- cannot derive a monotonic versionCode."
+            exit 1
+          fi
+          CODE=$(printf '%s' "${TAG#v}" | awk -F'[.-]' '{printf "%d%03d%03d", $1, $2, $3}')
+          echo "tag=$TAG -> versionCode=$CODE versionName=$TAG"
+          node -e '
+            const fs = require("fs");
+            const file = "android/app/build.gradle";
+            let src = fs.readFileSync(file, "utf8");
+            const before = src;
+            src = src.replace(/versionCode\s+\d+/, `versionCode ${Number(process.argv[1])}`);
+            src = src.replace(/versionName\s+"[^"]*"/, `versionName "${process.argv[2]}"`);
+            if (src === before) {
+              throw new Error("Could not find versionCode / versionName in " + file);
+            }
+            fs.writeFileSync(file, src);
+          ' "$CODE" "$TAG"
+          # Stamp the UI-visible version from the same tag, so a packaged app
+          # can never show a version that disagrees with what it shipped.
+          node -e '
+            const fs = require("fs");
+            const file = "js/version.js";
+            let src = fs.readFileSync(file, "utf8");
+            const bare = process.argv[1].replace(/^v/, "");
+            const next = src.replace(/export const APP_VERSION = \x27[^\x27]*\x27/, `export const APP_VERSION = \x27${bare}\x27`);
+            if (next === src) throw new Error("Could not find APP_VERSION in " + file);
+            fs.writeFileSync(file, next);
+          ' "$TAG"
+          grep -nE 'versionCode|versionName' android/app/build.gradle
+          grep -n 'APP_VERSION' js/version.js
+
       # The bundle is an explicit allowlist (see tools/build-dist.mjs), not the
       # repo root. If the allowlist is wrong the script fails the build rather
       # than shipping node_modules or the native project inside the APK.
@@ -171,47 +219,6 @@ jobs:
           fi
           grep -q 'com.syakyr.sudoku' android/app/build.gradle \
             || { echo "::error::applicationId is not com.syakyr.sudoku"; exit 1; }
-
-      # versionCode must INCREASE across releases or Android refuses to update
-      # an existing install in place (and Obtainium stops offering the app).
-      # Derived from the tag so it is monotonic for as long as the tags are:
-      #   major*1e6 + minor*1e3 + patch
-      # NB: the pre-release suffix is ignored, so `v1.0.0-rc` and `v1.0.0`
-      # map to the SAME versionCode. Do not ship both.
-      - name: Stamp the app version from the tag
-        run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          if ! printf '%s' "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH -- cannot derive a monotonic versionCode."
-            exit 1
-          fi
-          CODE=$(printf '%s' "${TAG#v}" | awk -F'[.-]' '{printf "%d%03d%03d", $1, $2, $3}')
-          echo "tag=$TAG -> versionCode=$CODE versionName=$TAG"
-          node -e '
-            const fs = require("fs");
-            const file = "android/app/build.gradle";
-            let src = fs.readFileSync(file, "utf8");
-            const before = src;
-            src = src.replace(/versionCode\s+\d+/, `versionCode ${Number(process.argv[1])}`);
-            src = src.replace(/versionName\s+"[^"]*"/, `versionName "${process.argv[2]}"`);
-            if (src === before) {
-              throw new Error("Could not find versionCode / versionName in " + file);
-            }
-            fs.writeFileSync(file, src);
-          ' "$CODE" "$TAG"
-          # Stamp the UI-visible version from the same tag, so a packaged app
-          # can never show a version that disagrees with what it shipped.
-          node -e '
-            const fs = require("fs");
-            const file = "js/version.js";
-            let src = fs.readFileSync(file, "utf8");
-            const bare = process.argv[1].replace(/^v/, "");
-            const next = src.replace(/export const APP_VERSION = \x27[^\x27]*\x27/, `export const APP_VERSION = \x27${bare}\x27`);
-            if (next === src) throw new Error("Could not find APP_VERSION in " + file);
-            fs.writeFileSync(file, next);
-          ' "$TAG"
-          grep -nE 'versionCode|versionName' android/app/build.gradle
-          grep -n 'APP_VERSION' js/version.js
 
       - name: Build the release APK
         working-directory: android
