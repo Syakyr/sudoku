@@ -1,0 +1,5 @@
+# Crawl everything. This is a public, free, no-login site.
+User-agent: *
+Allow: /
+
+Sitemap: https://syakyr.github.io/sudoku/sitemap.xml
