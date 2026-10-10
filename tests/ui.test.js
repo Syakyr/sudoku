@@ -161,10 +161,41 @@ test('playing every cell correctly completes the puzzle and records it', async (
   assert.equal(state.puzzle.status, 'completed');
   assert.ok(state.puzzle.solveTimeMs >= 0);
   assert.equal(store.byStatus('completed').length, 1);
-  assert.match($('toast').textContent, /Solved in/);
+  // New contract: the win screen names the seed and the time, and does NOT
+  // parade the mistake count. Mistakes are still stored (issue #1 needs them).
+  const toast$ = $('toast').textContent;
+  assert.match(toast$, /solved in/);
+  assert.ok(
+    toast$.includes(state.puzzle.seed),
+    `expected the seed ${state.puzzle.seed} in: ${toast$}`,
+  );
+  assert.doesNotMatch(toast$, /mistake/i, 'the win screen must not show mistakes');
+  assert.equal(typeof state.mistakes, 'number', 'but mistakes are still tracked');
   // The completed puzzle must show up under the Completed filter.
   $('statusTabs').querySelector('[data-status="completed"]').click();
   assert.equal(document.querySelectorAll('#puzzleList .puzzle-item').length, 1);
+});
+
+test('the Filled chip counts blanks-to-fill, not all 81 cells', () => {
+  const { state } = globalThis.sudokuApp;
+  const clues = state.puzzle.grid.split('').filter((c) => c !== '.').length;
+  const blanks = 81 - clues;
+  // Regression: the numerator excluded givens but the denominator was a
+  // hardcoded 81, so a solved board topped out at (81 - clues)/81 and the
+  // chip could never read full.
+  assert.equal($('filledTotal').textContent, String(blanks));
+  assert.ok(blanks > 0 && blanks < 81, 'a real puzzle has some blanks');
+  assert.ok(
+    Number($('filledCount').textContent) <= blanks,
+    'you can never fill more than there are blanks',
+  );
+  // And when every blank is played, the two must agree exactly. Only assert
+  // this if the board is actually full, so the test does not depend on the
+  // one before it having solved the puzzle.
+  const played = state.puzzle.grid.split('').filter((c, i) => c === '.' && state.values[i] !== 0).length;
+  if (played === blanks) {
+    assert.equal($('filledCount').textContent, $('filledTotal').textContent);
+  }
 });
 
 test('difficulty select offers all five tiers with hints', () => {

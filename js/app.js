@@ -201,9 +201,18 @@ function updateCounters() {
   $('mistakeCount').textContent = String(state.mistakes);
   $('hintCount').textContent = String(state.hints);
   let filled = 0;
+  let blanks = 0;
   const given = state.puzzle ? parseGrid(state.puzzle.grid) : new Uint8Array(81);
-  for (let i = 0; i < 81; i++) if (state.values[i] !== 0 && given[i] === 0) filled++;
+  for (let i = 0; i < 81; i++) {
+    if (given[i] === 0) blanks++;
+    if (state.values[i] !== 0 && given[i] === 0) filled++;
+  }
   $('filledCount').textContent = String(filled);
+  // Denominator is the blanks you have to fill, not all 81 cells. Counting only
+  // user-entered cells over a fixed 81 meant the chip could never reach full on
+  // a solved board -- it topped out at (81 - clues)/81.
+  const total = $('filledTotal');
+  if (total) total.textContent = String(blanks);
 }
 
 function buildNumpad() {
@@ -537,7 +546,10 @@ function checkComplete() {
   store.complete(state.puzzle.id, { solveTimeMs: time, mistakes: state.mistakes, hints: state.hints });
   state.puzzle.status = STATUS.COMPLETED;
   state.puzzle.solveTimeMs = time;
-  toast(`Solved in ${formatDuration(time)} — ${state.mistakes} mistake${state.mistakes === 1 ? '' : 's'}`, 'good');
+  // Mistakes are still STORED (issue #1 needs them for calibration) -- just not
+  // thrown in the player's face on the one screen that should be a win.
+  const who = state.puzzle.seed ? `${state.puzzle.seed} solved` : 'Puzzle solved';
+  toast(`${who} in ${formatDuration(time)}`, 'good');
   renderMeta();
   renderLibrary();
   renderStats();
