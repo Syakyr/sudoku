@@ -114,6 +114,23 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/twa.keystore"
           test -s "$RUNNER_TEMP/twa.keystore"
 
+      # bubblewrap keeps its own config (jdkPath / androidSdkPath) at
+      # ~/.bubblewrap/config.json and PROMPTS for it when unset -- including in
+      # `update`, which is not non-interactive the way the docs read. Measured:
+      #   ? Do you want Bubblewrap to install the JDK (recommended)? (Y/n)
+      #   ##[error]Process completed with exit code 130
+      # Seed it from the actions/setup-java and runner-provided SDK paths.
+      - name: Seed bubblewrap config
+        run: |
+          mkdir -p "$HOME/.bubblewrap"
+          cat > "$HOME/.bubblewrap/config.json" <<EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_HOME"
+          }
+          EOF
+          cat "$HOME/.bubblewrap/config.json"
+
       # Bump versionCode from the committed manifest so Android treats this as
       # an upgrade rather than a conflicting reinstall.
       - name: Sync the project with the web manifest
