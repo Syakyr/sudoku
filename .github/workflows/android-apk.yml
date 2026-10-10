@@ -87,11 +87,21 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Capacitor CLI 8.x hard-requires Node >=22 -- it aborts with
-          # "The Capacitor CLI requires NodeJS >=22.0.0" before doing anything.
-          # (Measured on run 38058496952 after pinning 20, which worked fine
-          # locally because this host runs Node 26.) ci.yml already uses 22.
-          node-version: '22'
+          # Pinned to the exact patch, not a floating major, so the APK that
+          # ships is built by a known toolchain.
+          #
+          # Two reasons for 26 rather than the 22 that Capacitor 8 merely
+          # requires:
+          #   1. It matches this host, which removes the class of bug we just
+          #      hit -- the workflow pinned Node 20 and died at `cap sync`
+          #      ("The Capacitor CLI requires NodeJS >=22.0.0") while passing
+          #      locally on Node 26.
+          #   2. Reproducibility beats convenience for a release artifact.
+          #
+          # CAVEAT: Node 26 is the Current line, NOT LTS (24 "Krypton" is).
+          # When 26 reaches EOL this must move to a supported line. Bump by
+          # changing the two numbers below and in ci.yml together.
+          node-version: '26.11.1'
           cache: npm
 
       - name: Install dependencies

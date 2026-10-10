@@ -15,7 +15,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Kept identical to android-apk.yml on purpose: host, test CI and the
+          # release build all on the same toolchain, so "works locally" and
+          # "works in CI" cannot disagree about the Node major.
+          node-version: '26.11.1'
           cache: npm
 
       - name: Install dependencies
