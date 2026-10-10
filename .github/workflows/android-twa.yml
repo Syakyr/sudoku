@@ -133,8 +133,12 @@ jobs:
 
       # Bump versionCode from the committed manifest so Android treats this as
       # an upgrade rather than a conflicting reinstall.
+      # NB: `update`'s --manifest wants the twa-manifest.json FILE. Passing the
+      # directory gives "EISDIR: illegal operation on a directory, read"
+      # (measured). `build`'s --manifest is documented as a directory, so it is
+      # left alone -- one variable changed per run.
       - name: Sync the project with the web manifest
-        run: bubblewrap update --manifest=android --appVersionName "${{ steps.tag.outputs.tag }}"
+        run: bubblewrap update --manifest=android/twa-manifest.json --appVersionName "${{ steps.tag.outputs.tag }}"
 
       - name: Build and sign
         env:
