@@ -134,8 +134,27 @@ jobs:
       # insurance against a future image, not the current fix.)
       - name: Ensure the build-tools bubblewrap requires
         run: |
-          REQUIRED=$(NODE_PATH="$(npm root -g)" node -e \
-            'console.log(require("@bubblewrap/core/dist/lib/androidSdk/AndroidSdkTools.js").BUILD_TOOLS_VERSION)')
+          # Resolve the constant from the CLI's OWN module tree. `NODE_PATH="$(npm
+          # root -g)"` was tried first and failed on the runner with
+          # MODULE_NOT_FOUND -- `npm root -g` does not necessarily agree with where
+          # `npm install -g` actually landed under actions/setup-node. The binary's
+          # realpath is by construction the same tree bubblewrap requires from.
+          BW_MAIN="$(readlink -f "$(command -v bubblewrap)")"
+          echo "bubblewrap entry: $BW_MAIN"
+          REQUIRED="$(node -e '
+            const {createRequire} = require("module");
+            const r = createRequire(process.argv[1]);
+            console.log(r("@bubblewrap/core/dist/lib/androidSdk/AndroidSdkTools.js").BUILD_TOOLS_VERSION);
+          ' "$BW_MAIN" 2>/dev/null || true)"
+
+          if [ -z "$REQUIRED" ]; then
+            # Do not fail a release over a diagnostic. bubblewrap checks and
+            # installs its own build-tools (which now works, since $SDK/bin
+            # resolves), so say so and move on.
+            echo "::notice::Could not read BUILD_TOOLS_VERSION from the installed bubblewrap; leaving build-tools to bubblewrap itself."
+            exit 0
+          fi
+
           echo "bubblewrap requires build-tools;$REQUIRED"
           if [ -d "$ANDROID_HOME/build-tools/$REQUIRED" ]; then
             echo "Already present."
