@@ -70,6 +70,11 @@ self.addEventListener('fetch', (event) => {
   // Never touch cross-origin requests, and never try to cache token POSTs etc.
   if (url.origin !== self.location.origin) return;
 
+  // Never intercept the worker script itself. It is not in SHELL, but this
+  // handler caches whatever it fetches, and a cached sw.js would pin the old
+  // worker and stop updates being detected at all.
+  if (url.pathname.endsWith('/sw.js')) return;
+
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
