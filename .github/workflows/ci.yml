@@ -1,7 +1,16 @@
 name: CI
 
 on:
+  # Branch pushes and PRs only. A bare `push:` here also fires on tag pushes,
+  # which made a release tag run the test suite twice -- once from this
+  # workflow, and again from android-apk.yml's own test job that gates the
+  # build. Splitting the triggers means:
+  #   push to main / PR  -> CI tests only
+  #   tag v*             -> android-apk.yml tests, then builds and releases
+  # so no event runs the same suite twice.
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
