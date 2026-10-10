@@ -21,6 +21,7 @@ import { parseGrid, gridToString, PEERS, rowOf, colOf } from './board.js';
 import { solveLogic, TECH_BY_KEY } from './solver.js';
 import { createStore, STATUS, encodeNotes, decodeNotes } from './store.js';
 import { openStorage } from './native-storage.js';
+import { APP_VERSION_LABEL } from './version.js';
 import { summarize, suggestNextTier, describeRating, formatDuration, formatPct } from './metrics.js';
 
 /*
@@ -86,6 +87,7 @@ function init() {
   buildDifficultySelect();
   wireControls();
   updateStorageBadge();
+  renderAbout();
   renderLibrary();
   renderStats();
 
@@ -96,6 +98,28 @@ function init() {
   } else {
     startGeneration({ difficulty: 'easy', symmetry: true });
   }
+}
+
+/*
+ * About row: the version the user is actually running, plus where their library
+ * is kept. Both are the first things you need when someone reports a problem,
+ * and neither was visible anywhere before.
+ *
+ * The version comes from js/version.js, which CI overwrites from the git tag
+ * during the APK build -- so a packaged app cannot display a version that
+ * disagrees with what shipped. package.json is deliberately NOT the source:
+ * it has sat at 1.0.0 across the whole v0.2.x line.
+ */
+function renderAbout() {
+  const el = $('aboutVersion');
+  if (!el) return;
+  const channel =
+    storageInfo.mode === 'native'
+      ? 'library stored on this device'
+      : storageInfo.mode === 'local'
+        ? 'library stored in this browser'
+        : 'library in memory only (not saved)';
+  el.textContent = `Sudoku ${APP_VERSION_LABEL} · ${channel}`;
 }
 
 function updateStorageBadge() {

@@ -199,7 +199,19 @@ jobs:
             }
             fs.writeFileSync(file, src);
           ' "$CODE" "$TAG"
+          # Stamp the UI-visible version from the same tag, so a packaged app
+          # can never show a version that disagrees with what it shipped.
+          node -e '
+            const fs = require("fs");
+            const file = "js/version.js";
+            let src = fs.readFileSync(file, "utf8");
+            const bare = process.argv[1].replace(/^v/, "");
+            const next = src.replace(/export const APP_VERSION = \x27[^\x27]*\x27/, `export const APP_VERSION = \x27${bare}\x27`);
+            if (next === src) throw new Error("Could not find APP_VERSION in " + file);
+            fs.writeFileSync(file, next);
+          ' "$TAG"
           grep -nE 'versionCode|versionName' android/app/build.gradle
+          grep -n 'APP_VERSION' js/version.js
 
       - name: Build the release APK
         working-directory: android
