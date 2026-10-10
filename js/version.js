@@ -10,7 +10,7 @@
  * For the rolling PWA channel the committed value below is what is shown: the
  * most recent release the deployed code corresponds to.
  */
-export const APP_VERSION = '0.2.3';
+export const APP_VERSION = '0.2.5';
 
 /** Display form, with the leading "v" the tags carry. */
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;
