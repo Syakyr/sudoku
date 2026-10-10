@@ -78,10 +78,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- .github/badges/version-drift.json; then
+
+          # Stage FIRST, then compare the index. `git diff --quiet -- <path>`
+          # only looks at tracked content, so on the very first run -- when the
+          # badge file is brand new and untracked -- it reported "unchanged"
+          # and the workflow exited green without ever committing. A check that
+          # cannot fail is worse than no check: it looked like the badge was
+          # working while raw.githubusercontent served a 404.
+          git add .github/badges/version-drift.json
+          if git diff --cached --quiet -- .github/badges/version-drift.json; then
             echo "Badge unchanged."
             exit 0
           fi
-          git add .github/badges/version-drift.json
           git commit -m "chore: update version drift badge [skip ci]"
           git push
