@@ -41,6 +41,16 @@ test('Settings reports the native storage channel when the plugin is present', (
   assert.doesNotMatch(el.textContent, /in this browser/);
 });
 
+test('the Dynamic swatch is absent when Material You is unavailable', async () => {
+  // This boot has no DynamicTheme plugin, which is the browser / pre-Android-12
+  // case. initDynamicTheme must remove the swatch rather than offer a theme it
+  // cannot paint.
+  await new Promise((r) => setTimeout(r, 50));
+  const swatch = dom.window.document.querySelector('.swatch[data-accent="dynamic"]');
+  assert.equal(swatch, null, 'swatch must be removed, not merely hidden');
+  assert.equal(globalThis.sudokuApp.dynamicSeed, null);
+});
+
 test('the About row is inside the settings tab, not floating in the drawer', () => {
   const el = dom.window.document.getElementById('aboutVersion');
   const tab = el.closest('#tab-settings');

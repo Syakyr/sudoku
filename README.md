@@ -166,6 +166,7 @@ board.
 
 | | |
 |---|---|
+| [CHANGELOG.md](CHANGELOG.md) | what changed in each release, and why — including the v0.1.0 TWA → v0.2.0 bundled-APK migration and the one-time data break it caused |
 | [docs/DIFFICULTY.md](docs/DIFFICULTY.md) | the technique ladder, the tier contract, measured generator hit rates, the uniqueness math, share tokens |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | local dev, visual checks, Pages deploy, cutting and verifying an APK release, gotchas already paid for |
 

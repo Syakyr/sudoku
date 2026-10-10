@@ -22,6 +22,11 @@ import { solveLogic, TECH_BY_KEY } from './solver.js';
 import { createStore, STATUS, encodeNotes, decodeNotes } from './store.js';
 import { openStorage } from './native-storage.js';
 import { APP_VERSION_LABEL } from './version.js';
+import {
+  queryDynamicTheme,
+  applyDynamicPalette,
+  clearDynamicPalette
+} from './material-you.js';
 import { summarize, suggestNextTier, describeRating, formatDuration, formatPct } from './metrics.js';
 
 /*
@@ -975,25 +980,88 @@ function buildDifficultySelect() {
  * paint; this only keeps the DOM, the swatch states and storage in step.
  */
 const THEME_KEY = 'sudoku.ui.theme';
-const ACCENTS = ['azure', 'crimson', 'amber', 'teal'];
+const ACCENTS = ['azure', 'crimson', 'amber', 'teal', 'dynamic'];
 const THEME_MODE = { azure: 'dark', crimson: 'dark', amber: 'light', teal: 'light' };
+
+// Seed colour handed up from the native DynamicTheme plugin at boot. Null means
+// Material You is unavailable (no plugin, pre-Android-12, or disabled), in which
+// case the Dynamic swatch is never revealed and picking it is impossible.
+let dynamicSeed = null;
+
+function systemPrefersDark() {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return true;
+  }
+}
 
 function currentAccent() {
   const a = document.documentElement.getAttribute('data-accent');
   return ACCENTS.includes(a) ? a : 'azure';
 }
 
-function applyAccent(name) {
-  if (!ACCENTS.includes(name)) name = 'azure';
-  document.documentElement.setAttribute('data-accent', name);
-  try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* storage blocked */ }
+function syncSwatchStates(name) {
   for (const s of document.querySelectorAll('.swatch')) {
     s.setAttribute('aria-checked', String(s.dataset.accent === name));
   }
+}
+
+function applyAccent(name) {
+  if (name === 'dynamic') {
+    // Guard: never let a stored 'dynamic' survive into an environment where it
+    // is unavailable (app copied to an older phone, plugin removed). Fall back
+    // rather than render a theme with no colours behind it.
+    if (!dynamicSeed) {
+      name = 'azure';
+    } else {
+      const mode = systemPrefersDark() ? 'dark' : 'light';
+      clearDynamicPalette();
+      const applied = applyDynamicPalette(dynamicSeed, mode);
+      if (!applied) {
+        name = 'azure';
+      } else {
+        try { localStorage.setItem(THEME_KEY, 'dynamic'); } catch (e) { /* storage blocked */ }
+        syncSwatchStates('dynamic');
+        const note = $('themeNote');
+        if (note) {
+          note.textContent = `Material You: derived from your wallpaper (${dynamicSeed}, ${mode}). Follows the system light/dark setting.`;
+        }
+        return;
+      }
+    }
+  }
+
+  if (!ACCENTS.includes(name)) name = 'azure';
+  // A static theme must not inherit leftover inline dynamic properties.
+  clearDynamicPalette();
+  document.documentElement.removeAttribute('style');
+  document.documentElement.setAttribute('data-accent', name);
+  try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* storage blocked */ }
+  syncSwatchStates(name);
   const note = $('themeNote');
   if (note) {
     note.textContent = `Theme "${name}" saved. Picking a theme overrides your system light/dark setting.`;
   }
+}
+
+/**
+ * Ask the native layer for the Material You seed once, at boot, and reveal the
+ * Dynamic swatch only if we actually got one.
+ */
+async function initDynamicTheme() {
+  const res = await queryDynamicTheme();
+  const swatch = document.querySelector('.swatch[data-accent="dynamic"]');
+  if (!res.supported) {
+    if (swatch) swatch.remove();
+    // A stored 'dynamic' with no seed behind it must not strand the UI.
+    if (currentAccent() === 'dynamic') applyAccent('azure');
+    return res;
+  }
+  dynamicSeed = res.seed;
+  if (swatch) swatch.hidden = false;
+  if (currentAccent() === 'dynamic') applyAccent('dynamic');
+  return res;
 }
 
 function wireControls() {
@@ -1044,6 +1112,10 @@ function wireControls() {
     if (s) applyAccent(s.dataset.accent);
   });
   applyAccent(currentAccent());
+  // Async: asks the native layer for the wallpaper seed and reveals the
+  // Dynamic swatch if there is one. Runs after the sync apply so a stored
+  // 'dynamic' theme is not stranded if the plugin turns out to be missing.
+  initDynamicTheme().catch(() => {});
 
   $('menuBtn').addEventListener('click', () => {
     if (isDrawerOpen()) closeDrawer();
@@ -1311,5 +1383,10 @@ globalThis.sudokuApp = {
   isNativeApp,
   requestPersistentStorage,
   storageInfo,
-  flushStorage
+  flushStorage,
+  initDynamicTheme,
+  applyAccent,
+  get dynamicSeed() {
+    return dynamicSeed;
+  }
 };

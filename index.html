@@ -221,6 +221,12 @@
             <button class="swatch" type="button" role="radio" data-accent="amber" aria-checked="false"><span class="dot" style="--dot:#a86f08; --dot-bg:#fdf7ef"></span>Amber</button>
             <button class="swatch" type="button" role="radio" data-accent="teal" aria-checked="false"><span class="dot" style="--dot:#0d7a6b; --dot-bg:#f2faf8"></span>Teal</button>
           </div>
+          <div class="swatches" role="group" aria-label="Dynamic color">
+            <!-- Revealed only when the native DynamicTheme plugin reports support
+                 (Android 12+ with dynamic color enabled). Hidden rather than
+                 absent so the markup stays static and JS flips one flag. -->
+            <button class="swatch" type="button" role="radio" data-accent="dynamic" aria-checked="false" hidden><span class="dot" style="--dot:#a8c4ff; --dot-bg:#121722"></span>Dynamic <span class="fine">(Material You)</span></button>
+          </div>
           <p class="fine" id="themeNote"></p>
         </section>
         <hr>
