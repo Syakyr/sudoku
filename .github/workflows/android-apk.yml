@@ -46,7 +46,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Tests gate the release. GitHub Actions `needs:` only works between jobs in
+  # the SAME workflow, so the test run lives here rather than relying on the
+  # separate CI workflow -- that one passed on the tag while this build went on
+  # and failed, which is the wrong ordering for a release artifact.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.11.1'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
   build-and-release:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -64,7 +85,13 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # Capacitor 8's capacitor-android module compiles at Java 21
+          # (node_modules/@capacitor/android/capacitor/build.gradle:
+          #  sourceCompatibility JavaVersion.VERSION_21). Pinning 17 fails at
+          #  ':capacitor-android:compileReleaseJavaWithJavac' with
+          #  "error: invalid source release: 21" -- measured on run
+          #  38058960304.
+          java-version: '21'
 
       # GitHub-hosted ubuntu runners ship the Android SDK pre-installed, so no
       # setup action is used. android-actions/setup-android@v3 was tried during
