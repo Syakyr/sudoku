@@ -10,7 +10,11 @@ name: Version drift badge
 # Red    -> main has drifted; consider cutting a release
 #
 # Writes a shields.io endpoint JSON back into the repo. The commit is marked
-# [skip ci] and this workflow ignores its own output path, so it cannot loop.
+# [skip ci] and this workflow ignores its own output path, so push events
+# cannot loop. The schedule cannot be silenced that way, so the drift count
+# must also exclude the bot's own badge commits -- otherwise every scheduled
+# run counts the previous badge commit as drift, the number never settles, and
+# the badge commits a new (redder) value every day forever.
 
 on:
   push:
@@ -55,7 +59,10 @@ jobs:
             MSG='no release yet'
             COLOR='red'
           else
-            AHEAD="$(git rev-list --count "${LATEST}..HEAD")"
+            # Exclude this workflow's own badge commits: counting them makes
+            # the drift grow by one on every scheduled run, so the badge can
+            # never reach "shipped" and commits forever.
+            AHEAD="$(git rev-list --count --grep='chore: update version drift badge' --invert-grep "${LATEST}..HEAD")"
             if [ "$AHEAD" -eq 0 ]; then
               MSG="$LATEST · shipped"
               COLOR='green'
